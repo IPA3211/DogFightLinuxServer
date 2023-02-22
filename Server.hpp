@@ -79,7 +79,6 @@ private:
 
     void AcceptThreadFunc();
     void ServeClient();
-    void BroadCastToAllClient(string msg);
 
 public:
     Server(/* args */);
@@ -87,4 +86,5 @@ public:
 
     void Start();
     void Stop();
+    void BroadCastToAllClient(string msg);
 };

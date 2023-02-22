@@ -16,7 +16,11 @@ Server::~Server()
 }
 
 void Server::BroadCastToAllClient(string msg){
-
+    for(int i = 1; i < DFLT_NUM_MAX_CLIENT; i++){
+        if(client_list[i].fd != -1){
+            send(client_list[i].fd, msg.c_str(), msg.length() + 1, 0);
+        }
+    }
 }
 
 void Server::AcceptThreadFunc()

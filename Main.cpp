@@ -21,5 +21,8 @@ int main(int argc, char *argv[])
             auto aa = std::async([server] () {server->Stop ();});
             break;
         }
+        else{
+            server -> BroadCastToAllClient(input);
+        }
     }
 }
