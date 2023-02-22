@@ -16,7 +16,7 @@ Server::~Server()
 }
 
 void Server::BroadCastToAllClient(string msg){
-    
+
 }
 
 void Server::AcceptThreadFunc()
