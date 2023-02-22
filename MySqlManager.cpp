@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include "/usr/include/mysql/mysql.h"
+
 class FFError
 {
 public:
