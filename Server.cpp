@@ -1,4 +1,5 @@
 #include "./Server.hpp"
+#include "./json/json.h"
 
 Server::Server(/* args */)
 {
@@ -15,9 +16,12 @@ Server::~Server()
     }
 }
 
-void Server::BroadCastToAllClient(string msg){
-    for(int i = 1; i < DFLT_NUM_MAX_CLIENT; i++){
-        if(client_list[i].fd != -1){
+void Server::BroadCastToAllClient(string msg)
+{
+    for (int i = 1; i < DFLT_NUM_MAX_CLIENT; i++)
+    {
+        if (client_list[i].fd != -1)
+        {
             send(client_list[i].fd, msg.c_str(), msg.length() + 1, 0);
         }
     }
@@ -58,10 +62,9 @@ void Server::AcceptThreadFunc()
     char line[255];
 
     printf("server start!");
-
     while (is_accept_looping)
     {
-        int nread = poll(client_list, maxi + i, 0);
+        int nread = poll(client_list, maxi + i, -1);
 
         socklen_t clilen;
         struct sockaddr_in clientaddr;
@@ -107,6 +110,8 @@ void Server::AcceptThreadFunc()
             if (sockfd < 0)
                 continue;
 
+            string a;
+
             if (client_list[i].revents & (POLLIN | POLLERR))
             {
                 while (true)
@@ -121,24 +126,21 @@ void Server::AcceptThreadFunc()
                     }
                     else
                     {
-                        if (strncmp(buf, "quit", 4) == 0)
+                        a += buf;
+                        if (recv_amt < sizeof(buf))
                         {
-                            printf("%d : quit", i);
-                            write(sockfd, "byebye\n", 7);
-                            close(client_list[i].fd);
-                            client_list[i].fd = -1;
                             break;
                         }
-                        else
-                        {
-                            printf("%d : %s\n", i, buf);
-                            send(sockfd, buf, sizeof(buf), 0); // 송신
-
-                            if(recv_amt < sizeof(buf)){
-                                break;
-                            }
-                        }
                     }
+                }
+
+                Json::Reader reader;
+                Json::Value root;
+                bool parsingRet = reader.parse(a, root);
+
+                if (parsingRet == false)
+                {
+                    std::cout << "Failed to parse Json" + a << endl;
                 }
             }
         }
@@ -168,11 +170,11 @@ void Server::Stop()
 {
     is_accept_looping = false;
 
-    if (socket_fd == -1)
+    if (socket_fd != -1)
     {
-        close(socket_fd);
+        shutdown(socket_fd, SHUT_RDWR);
         socket_fd = -1;
-        printf("Stop() : Server Stopped");
+        printf("Stop() : Server Stopped\n");
     }
 
     if (accept_thread)
