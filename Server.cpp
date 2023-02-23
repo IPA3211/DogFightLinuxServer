@@ -142,6 +142,10 @@ void Server::AcceptThreadFunc()
                 {
                     std::cout << "Failed to parse Json" + a << endl;
                 }
+                else
+                {
+                    std::cout << root["packetFunc"].asCString() << endl;
+                }
             }
         }
     }
