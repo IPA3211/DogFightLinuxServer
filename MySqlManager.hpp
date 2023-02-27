@@ -28,8 +28,8 @@ public:
 MySqlManager::MySqlManager(/* args */)
 {
     std::string hostName = "localhost";
-    std::string userId = "dogfight_manager";
-    std::string password = "Dkanrjsk12!";
+    std::string userId = "dogfight_user";
+    std::string password = "980706";
     std::string DB = "dogfight";
 
     MySQLConnection = mysql_init(NULL);
@@ -49,10 +49,6 @@ MySqlManager::MySqlManager(/* args */)
         {
             throw FFError((char *)mysql_error(MySQLConnection));
         }
-
-        printf("MySQL Connection Info: %s \n", mysql_get_host_info(MySQLConnection));
-        printf("MySQL Client Info: %s \n", mysql_get_client_info());
-        printf("MySQL Server Info: %s \n", mysql_get_server_info(MySQLConnection));
     }
     catch (FFError e)
     {

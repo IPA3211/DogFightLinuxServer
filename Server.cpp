@@ -1,6 +1,7 @@
 #include "./Server.hpp"
 #include "./json/json.h"
 #include "./ThreadPool.hpp"
+#include "./MySqlManager.hpp"
 
 Server::Server(/* args */)
 {
@@ -44,11 +45,13 @@ void Server::AcceptThreadFunc()
     if (bind(socket_fd, (sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
     {
         printf("bind() error");
+        exit(0);
     }
 
     if (listen(socket_fd, 5) == -1)
     {
         printf("listen() error");
+        exit(0);
     }
 
     client_list[0].fd = socket_fd;
@@ -146,27 +149,65 @@ void Server::AcceptThreadFunc()
                 }
                 else
                 {
-                    auto result = pool.EnqueueJob([this, root]() -> void
-                                                  { return this->ServeClient(root); });
+                    int fd = client_list[i].fd;
+                    auto result = pool.EnqueueJob([this, root, fd]() -> void
+                                                  { return this->ServeClient(root, fd); });
                 }
             }
         }
     }
 }
 
-void Server::ServeClient(Json::Value packet)
+void Server::ServeClient(Json::Value packet, int client_socket)
 {
+    MySqlManager manager;
     std::cout << packet["index"].asInt() << endl;
     std::cout << packet["order"].asInt() << endl;
     std::cout << packet["msg"].asString() << endl;
-    
+
     switch (packet["order"].asInt())
     {
-    case TcpPacketType::IdDuplication :
-        /* code */
-        break;
-    
-    default:
+    case TcpPacketType::IdDuplication:
+        try
+        {
+            auto ans = manager.SendQuery("SELECT count(*) FROM dogfight.user where UserID = \"" + packet["msg"].asString() + "\";");
+            auto row = mysql_fetch_row(ans);
+            cout << "IdDuplication : "
+                 << "Query end" << endl;
+            cout << row[0] << endl;
+
+            if (std::atoi(row[0]) == 0)
+            {
+                Json::Value ansPacket;
+                ansPacket["index"] = packet["index"].asInt();
+                ansPacket["order"] = TcpPacketType::Answer;
+                ansPacket["msg"] = "True";
+
+                Json::StyledWriter writer;
+                std::string outputConfig = writer.write(ansPacket);
+
+                send(client_socket, outputConfig.c_str(), outputConfig.length() + 1, 0);
+            }
+            else
+            {
+                Json::Value ansPacket;
+                ansPacket["index"] = packet["index"].asInt();
+                ansPacket["order"] = TcpPacketType::Answer;
+                ansPacket["msg"] = "False";
+
+                Json::StyledWriter writer;
+                std::string outputConfig = writer.write(ansPacket);
+
+                send(client_socket, outputConfig.c_str(), outputConfig.length() + 1, 0);
+            }
+
+            mysql_free_result(ans);
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << e.what() << '\n';
+        }
+
         break;
     }
 }

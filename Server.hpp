@@ -16,7 +16,7 @@ using namespace std;
 enum TcpPacketType{
     Answer = 0,
     Msg,
-    
+
     IdDuplication = 100,
     NickDuplication,
     EmailDuplication,
@@ -60,5 +60,5 @@ public:
     void Start();
     void Stop();
     void BroadCastToAllClient(string msg);
-    void ServeClient(Json::Value packet);
+    void ServeClient(Json::Value packet, int fd);
 };
