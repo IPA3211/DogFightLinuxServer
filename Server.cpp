@@ -1,5 +1,6 @@
 #include "./Server.hpp"
 #include "./json/json.h"
+#include "./ThreadPool.hpp"
 
 Server::Server(/* args */)
 {
@@ -30,6 +31,7 @@ void Server::BroadCastToAllClient(string msg)
 void Server::AcceptThreadFunc()
 {
     socket_fd = socket(PF_INET, SOCK_STREAM, 0);
+    ThreadPool::ThreadPool pool(8);
 
     sockaddr_in serv_addr;
     int i, maxi;
@@ -144,23 +146,29 @@ void Server::AcceptThreadFunc()
                 }
                 else
                 {
-                    std::cout << root["packetFunc"].asCString() << endl;
+                    auto result = pool.EnqueueJob([this, root]() -> void
+                                                  { return this->ServeClient(root); });
                 }
             }
         }
     }
 }
 
-void Server::ServeClient()
+void Server::ServeClient(Json::Value packet)
 {
-    int rc;
-    struct timeval t_timeout;
-
-    // device의 open이 되었다고 가정하고 진행한다.
-    int dev_fd = 3;
-    int max_fd = dev_fd + 1;
-
-    fd_set fd_reads;
+    std::cout << packet["index"].asInt() << endl;
+    std::cout << packet["order"].asInt() << endl;
+    std::cout << packet["msg"].asString() << endl;
+    
+    switch (packet["order"].asInt())
+    {
+    case TcpPacketType::IdDuplication :
+        /* code */
+        break;
+    
+    default:
+        break;
+    }
 }
 
 void Server::Start()

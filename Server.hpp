@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include <future>
 #include <memory.h>
@@ -7,52 +9,23 @@
 #include <sys/socket.h>
 #include <sys/poll.h> 
 #include <iostream>
+#include "./json/json.h"
 
 using namespace std;
 
-class Client
-{
-    private :
-        
-        string          ip_addr;
-        int             time_connect;
-        int             time_disconnect;
-        
-        bool            is_run;
-        bool            is_loop;
-        
-        int             index;
-        int             socket_fd;
-        int             num_reconnect;
-        
-    public  :
-        Client();
-        ~Client();
-        
-        void            set_debug_print(void);
+enum TcpPacketType{
+    Answer = 0,
+    Msg,
+    
+    IdDuplication = 100,
+    NickDuplication,
+    EmailDuplication,
 
-        void            set_index(int _index);
-        
-        bool            is_reconnect(string _ip_addr);
-        bool            is_alive(void);    // get is_loop
+    SignUp = 200,
+    SignIn,
 
-        string          get_ip_addr(void);
-        string          get_mac_addr(void);
-        int             get_num_reconnect(void);
-        int             get_timestamp(void);
-        
-        int             get_time_connect(void);
-        int             get_time_disconnect(void);
-        
-        void            init(string _ip_addr, int _socket_fd);
-        void            stop(void);
-        void            run(void);
-        void            reconnect(int _socket_fd);
-        
-        void            set_event_handler(void (*_func)(int, bool));
-        void            set_queue_data(char *_data, int _size);
-
-        void            execute(void);
+    CreateRoom = 300,
+    Quit = 999
 };
 
 class Server
@@ -79,7 +52,6 @@ private:
     int socket_fd = -1;
 
     void AcceptThreadFunc();
-    void ServeClient();
 
 public:
     Server(/* args */);
@@ -88,4 +60,5 @@ public:
     void Start();
     void Stop();
     void BroadCastToAllClient(string msg);
+    void ServeClient(Json::Value packet);
 };
