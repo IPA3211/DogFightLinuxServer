@@ -143,9 +143,16 @@ void Server::AcceptThreadFunc()
             if (client_list[i].revents & (POLLIN | POLLERR))
             {
                 auto fd = client_list[i].fd;
-                auto root = RecvPacket(&client_list[i]);
-                auto result = pool.EnqueueJob([this, root, fd]() -> void
+                try
+                {
+                    auto root = RecvPacket(&client_list[i]);
+                    auto result = pool.EnqueueJob([this, root, fd]() -> void
                                               { return this->ServeClient(root, fd); });
+                }
+                catch(const FFError& e)
+                {
+                    cout << e.Label << endl;
+                }
             }
         }
     }
@@ -153,41 +160,32 @@ void Server::AcceptThreadFunc()
 
 void Server::ServeClient(Json::Value packet, int client_socket)
 {
-    MySqlManager manager;
+
     std::cout << packet["index"].asInt() << endl;
     std::cout << packet["order"].asInt() << endl;
     std::cout << packet["msg"].asString() << endl;
 
+    Json::Value ansPacket;
+    ansPacket["index"] = packet["index"].asInt();
+    ansPacket["order"] = TcpPacketType::Answer;
     switch (packet["order"].asInt())
     {
     case TcpPacketType::IdDuplication:
-        try
-        {
-            auto ans = manager.SendQuery("SELECT count(*) FROM dogfight.user where UserID = \"" + packet["msg"].asString() + "\";");
-            auto row = mysql_fetch_row(ans);
 
-            Json::Value ansPacket;
-            ansPacket["index"] = packet["index"].asInt();
-            ansPacket["order"] = TcpPacketType::Answer;
+        ansPacket["msg"] = to_string(CheckDuplication("user", "UserID", packet["msg"].asString()));
 
-            if (std::atoi(row[0]) == 0)
-            {
-                ansPacket["msg"] = "True";
-            }
-            else
-            {
-                ansPacket["msg"] = "False";
-            }
-
-            SendPacket(client_socket, ansPacket);
-            mysql_free_result(ans);
-        }
-        catch (const std::exception &e)
-        {
-            std::cerr << e.what() << '\n';
-        }
-
+        SendPacket(client_socket, ansPacket);
         break;
+    case TcpPacketType::EmailDuplication:
+        ansPacket["msg"] = to_string(CheckDuplication("user", "Email", packet["msg"].asString()));
+
+        SendPacket(client_socket, ansPacket);
+        break;
+
+    case TcpPacketType::NickDuplication:
+        ansPacket["msg"] = to_string(CheckDuplication("user", "NickName", packet["msg"].asString()));
+
+        SendPacket(client_socket, ansPacket);
     }
 }
 
@@ -239,4 +237,32 @@ Json::Value Server::RecvPacket(pollfd *socket_fd)
         int fd = socket_fd->fd;
         return root;
     }
+}
+
+int Server::CheckDuplication(string table, string column, string check)
+{
+    MySqlManager manager;
+    try
+    {
+        auto ans = manager.SendQuery("SELECT count(*) FROM dogfight." + table + " where " + column + " = \"" + check + "\";");
+        auto row = mysql_fetch_row(ans);
+        int temp_ans = 0;
+
+        if (std::atoi(row[0]) == 0)
+        {
+            temp_ans = 1; // true
+        }
+        else
+        {
+            temp_ans = 0; // false
+        }
+
+        mysql_free_result(ans);
+        return temp_ans;
+    }
+    catch (const FFError &e)
+    {
+        return -1; // error
+    }
+    return -1;
 }

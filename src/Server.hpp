@@ -63,4 +63,5 @@ public:
     void ServeClient(Json::Value packet, int fd);
     void SendPacket(int socket, Json::Value packet);
     Json::Value RecvPacket(pollfd *socket_fd);
+    int CheckDuplication(string table, string column, string check);
 };
