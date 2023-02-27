@@ -61,4 +61,6 @@ public:
     void Stop();
     void BroadCastToAllClient(string msg);
     void ServeClient(Json::Value packet, int fd);
+    void SendPacket(int socket, Json::Value packet);
+    Json::Value RecvPacket(pollfd *socket_fd);
 };

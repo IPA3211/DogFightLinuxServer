@@ -18,6 +18,33 @@ Server::~Server()
     }
 }
 
+void Server::Start()
+{
+    is_accept_looping = true;
+    accept_thread = new std::thread([this]()
+                                    { this->AcceptThreadFunc(); });
+}
+
+void Server::Stop()
+{
+    is_accept_looping = false;
+
+    if (socket_fd != -1)
+    {
+        shutdown(socket_fd, SHUT_RDWR);
+        socket_fd = -1;
+        printf("Stop() : Server Stopped\n");
+    }
+
+    if (accept_thread)
+    {
+        if (accept_thread->joinable())
+        {
+            accept_thread->join();
+        }
+    }
+}
+
 void Server::BroadCastToAllClient(string msg)
 {
     for (int i = 1; i < DFLT_NUM_MAX_CLIENT; i++)
@@ -63,8 +90,6 @@ void Server::AcceptThreadFunc()
     }
 
     maxi = 0;
-    char buf[255];
-    char line[255];
 
     printf("server start!");
     while (is_accept_looping)
@@ -115,44 +140,12 @@ void Server::AcceptThreadFunc()
             if (sockfd < 0)
                 continue;
 
-            string a;
-
             if (client_list[i].revents & (POLLIN | POLLERR))
             {
-                while (true)
-                {
-                    memset(buf, 0x00, sizeof(buf));
-                    int recv_amt = recv(sockfd, buf, sizeof(buf), 0);
-                    if (recv_amt <= 0)
-                    {
-                        close(client_list[i].fd);
-                        client_list[i].fd = -1;
-                        break;
-                    }
-                    else
-                    {
-                        a += buf;
-                        if (recv_amt < sizeof(buf))
-                        {
-                            break;
-                        }
-                    }
-                }
-
-                Json::Reader reader;
-                Json::Value root;
-                bool parsingRet = reader.parse(a, root);
-
-                if (parsingRet == false)
-                {
-                    std::cout << "Failed to parse Json" + a << endl;
-                }
-                else
-                {
-                    int fd = client_list[i].fd;
-                    auto result = pool.EnqueueJob([this, root, fd]() -> void
-                                                  { return this->ServeClient(root, fd); });
-                }
+                auto fd = client_list[i].fd;
+                auto root = RecvPacket(&client_list[i]);
+                auto result = pool.EnqueueJob([this, root, fd]() -> void
+                                              { return this->ServeClient(root, fd); });
             }
         }
     }
@@ -172,35 +165,21 @@ void Server::ServeClient(Json::Value packet, int client_socket)
         {
             auto ans = manager.SendQuery("SELECT count(*) FROM dogfight.user where UserID = \"" + packet["msg"].asString() + "\";");
             auto row = mysql_fetch_row(ans);
-            cout << "IdDuplication : "
-                 << "Query end" << endl;
-            cout << row[0] << endl;
+
+            Json::Value ansPacket;
+            ansPacket["index"] = packet["index"].asInt();
+            ansPacket["order"] = TcpPacketType::Answer;
 
             if (std::atoi(row[0]) == 0)
             {
-                Json::Value ansPacket;
-                ansPacket["index"] = packet["index"].asInt();
-                ansPacket["order"] = TcpPacketType::Answer;
                 ansPacket["msg"] = "True";
-
-                Json::StyledWriter writer;
-                std::string outputConfig = writer.write(ansPacket);
-
-                send(client_socket, outputConfig.c_str(), outputConfig.length() + 1, 0);
             }
             else
             {
-                Json::Value ansPacket;
-                ansPacket["index"] = packet["index"].asInt();
-                ansPacket["order"] = TcpPacketType::Answer;
                 ansPacket["msg"] = "False";
-
-                Json::StyledWriter writer;
-                std::string outputConfig = writer.write(ansPacket);
-
-                send(client_socket, outputConfig.c_str(), outputConfig.length() + 1, 0);
             }
 
+            SendPacket(client_socket, ansPacket);
             mysql_free_result(ans);
         }
         catch (const std::exception &e)
@@ -212,29 +191,52 @@ void Server::ServeClient(Json::Value packet, int client_socket)
     }
 }
 
-void Server::Start()
+void Server::SendPacket(int socket, Json::Value packet)
 {
-    is_accept_looping = true;
-    accept_thread = new std::thread([this]()
-                                    { this->AcceptThreadFunc(); });
+    Json::StyledWriter writer;
+    std::string outputConfig = writer.write(packet);
+
+    send(socket, outputConfig.c_str(), outputConfig.length() + 1, 0);
 }
 
-void Server::Stop()
+Json::Value Server::RecvPacket(pollfd *socket_fd)
 {
-    is_accept_looping = false;
+    string a;
+    char buf[255];
+    char line[255];
 
-    if (socket_fd != -1)
+    while (true)
     {
-        shutdown(socket_fd, SHUT_RDWR);
-        socket_fd = -1;
-        printf("Stop() : Server Stopped\n");
+        memset(buf, 0x00, sizeof(buf));
+        int recv_amt = recv(socket_fd->fd, buf, sizeof(buf), 0);
+        if (recv_amt <= 0)
+        {
+            close(socket_fd->fd);
+            socket_fd->fd = -1;
+            break;
+        }
+        else
+        {
+            a += buf;
+            if (recv_amt < sizeof(buf))
+            {
+                break;
+            }
+        }
     }
 
-    if (accept_thread)
+    Json::Reader reader;
+    Json::Value root;
+    bool parsingRet = reader.parse(a, root);
+
+    if (parsingRet == false)
     {
-        if (accept_thread->joinable())
-        {
-            accept_thread->join();
-        }
+        std::cout << "Failed to parse Json" + a << endl;
+        throw FFError((char *)"Failed to parse Json");
+    }
+    else
+    {
+        int fd = socket_fd->fd;
+        return root;
     }
 }
