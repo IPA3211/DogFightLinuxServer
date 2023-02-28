@@ -11,6 +11,9 @@
 #include <iostream>
 #include "./json/json.h"
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
 using namespace std;
 
 enum TcpPacketType{
@@ -41,6 +44,7 @@ class Server
 
 private:
     pollfd client_list[DFLT_NUM_MAX_CLIENT];
+    SSL *client_ssl_list[DFLT_NUM_MAX_CLIENT];
     std::mutex client_list_mutex;
 
     std::thread *accept_thread;
@@ -60,7 +64,7 @@ public:
     void BroadCastToAllClient(string msg);
     void ServeClient(Json::Value packet, int fd);
     void SendPacket(int socket, Json::Value packet);
-    Json::Value RecvPacket(pollfd *socket_fd);
+    Json::Value RecvPacket(int index);
     Json::Value CheckDuplication(string table, string column, string check);
     Json::Value SignUpUser(string id, string pass, string nick, string email);
 };

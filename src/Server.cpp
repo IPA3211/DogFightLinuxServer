@@ -3,6 +3,23 @@
 #include "./ThreadPool.hpp"
 #include "./MySqlManager.hpp"
 
+#define USE_SSL
+
+void init_openssl()
+{
+    SSL_load_error_strings();
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    cout << "Start SSL" << endl;
+}
+
+void cleanup_openssl()
+{
+    ERR_free_strings();
+    EVP_cleanup();
+    cout << "CleanUp SSL" << endl;
+}
+
 Server::Server(/* args */)
 {
 }
@@ -20,6 +37,9 @@ Server::~Server()
 
 void Server::Start()
 {
+#ifdef USE_SSL
+    init_openssl();
+#endif
     is_accept_looping = true;
     accept_thread = new std::thread([this]()
                                     { this->AcceptThreadFunc(); });
@@ -43,6 +63,10 @@ void Server::Stop()
             accept_thread->join();
         }
     }
+
+#ifdef USE_SSL
+    cleanup_openssl();
+#endif
 }
 
 void Server::BroadCastToAllClient(string msg)
@@ -81,6 +105,21 @@ void Server::AcceptThreadFunc()
         exit(0);
     }
 
+#ifdef USE_SSL
+    SSL_CTX *sslContext = SSL_CTX_new(SSLv23_server_method());
+    SSL_CTX_set_options(sslContext, SSL_OP_SINGLE_DH_USE);
+
+    if (SSL_CTX_use_certificate_file(sslContext, "../test.pem", SSL_FILETYPE_PEM) <= 0)
+    {
+        ERR_print_errors_fp(stdout);
+    }
+    if (SSL_CTX_use_PrivateKey_file(sslContext, "../key.pem", SSL_FILETYPE_PEM) <= 0)
+    {
+        ERR_print_errors_fp(stdout);
+    }
+
+#endif
+
     client_list[0].fd = socket_fd;
     client_list[0].events = POLLIN;
 
@@ -90,8 +129,10 @@ void Server::AcceptThreadFunc()
     }
 
     maxi = 0;
-
-    printf("server start!");
+#ifdef USE_SSL
+    printf("ssl ");
+#endif
+    printf("server start!\n");
     while (is_accept_looping)
     {
         int nread = poll(client_list, maxi + i, -1);
@@ -106,11 +147,25 @@ void Server::AcceptThreadFunc()
                                        (struct sockaddr *)&clientaddr,
                                        &clilen);
 
+#ifdef USE_SSL
+            SSL *ssl = SSL_new(sslContext);
+            SSL_set_fd(ssl, client_sockfd);
+            int ssl_err = SSL_accept(ssl);
+            if (ssl_err <= 0)
+            {
+                cout << "ssl_err" << endl;
+                continue;
+            }
+#endif
+
             for (i = 1; i < DFLT_NUM_MAX_CLIENT; i++)
             {
                 if (client_list[i].fd < 0)
                 {
                     client_list[i].fd = client_sockfd;
+#ifdef USE_SSL
+                    client_ssl_list[i] = ssl;
+#endif
                     printf("accept!\n");
                     break;
                 }
@@ -120,6 +175,9 @@ void Server::AcceptThreadFunc()
             {
                 printf("max client!\n");
                 close(client_sockfd);
+#ifdef USE_SSL
+                SSL_free(ssl);
+#endif
                 continue;
             }
 
@@ -142,25 +200,28 @@ void Server::AcceptThreadFunc()
 
             if (client_list[i].revents & (POLLIN | POLLERR))
             {
-                auto fd = client_list[i].fd;
+                int index = i;
                 try
                 {
-                    auto root = RecvPacket(&client_list[i]);
-                    auto result = pool.EnqueueJob([this, root, fd]() -> void
-                                              { return this->ServeClient(root, fd); });
+                    auto root = RecvPacket(i);
+                    auto result = pool.EnqueueJob([this, root, index]() -> void
+                                                  { return this->ServeClient(root, index); });
                 }
-                catch(const FFError& e)
+                catch (const FFError &e)
                 {
                     cout << e.Label << endl;
                 }
             }
         }
     }
+
+#ifdef USE_SSL
+    SSL_CTX_free(sslContext);
+#endif
 }
 
-void Server::ServeClient(Json::Value packet, int client_socket)
+void Server::ServeClient(Json::Value packet, int index)
 {
-
     std::cout << packet["index"].asInt() << endl;
     std::cout << packet["order"].asInt() << endl;
     std::cout << packet["msg"].asString() << endl;
@@ -179,24 +240,27 @@ void Server::ServeClient(Json::Value packet, int client_socket)
     case TcpPacketType::DuplicationCheck:
         ans_packet["msg"] = writer.write(CheckDuplication(in_msg["table"].asString(), in_msg["column"].asString(), in_msg["check"].asString()));
         break;
-    
+
     case TcpPacketType::SignUp:
         ans_packet["msg"] = writer.write(SignUpUser(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString()));
         break;
     }
-    
-    SendPacket(client_socket, ans_packet);
+
+    SendPacket(index, ans_packet);
 }
 
-void Server::SendPacket(int socket, Json::Value packet)
+void Server::SendPacket(int index, Json::Value packet)
 {
     Json::StyledWriter writer;
     std::string outputConfig = writer.write(packet);
-
-    send(socket, outputConfig.c_str(), outputConfig.length() + 1, 0);
+#ifdef USE_SSL
+    SSL_write(client_ssl_list[index], outputConfig.c_str(), outputConfig.length() + 1);
+#else
+    send(client_list[index].fd, outputConfig.c_str(), outputConfig.length() + 1, 0);
+#endif
 }
 
-Json::Value Server::RecvPacket(pollfd *socket_fd)
+Json::Value Server::RecvPacket(int index)
 {
     string a;
     char buf[255];
@@ -205,11 +269,18 @@ Json::Value Server::RecvPacket(pollfd *socket_fd)
     while (true)
     {
         memset(buf, 0x00, sizeof(buf));
-        int recv_amt = recv(socket_fd->fd, buf, sizeof(buf), 0);
+#ifdef USE_SSL
+        int recv_amt = SSL_read(client_ssl_list[index], (char *)buf, sizeof(buf));
+#else
+        int recv_amt = recv(client_list[index].fd, buf, sizeof(buf), 0);
+#endif
         if (recv_amt <= 0)
         {
-            close(socket_fd->fd);
-            socket_fd->fd = -1;
+            close(client_list[index].fd);
+#ifdef USE_SSL
+            SSL_free(client_ssl_list[index]);
+#endif
+            client_list[index].fd = -1;
             break;
         }
         else
@@ -233,7 +304,7 @@ Json::Value Server::RecvPacket(pollfd *socket_fd)
     }
     else
     {
-        int fd = socket_fd->fd;
+        int fd = client_list[index].fd;
         return root;
     }
 }
@@ -284,21 +355,12 @@ Json::Value Server::SignUpUser(string id, string pass, string nick, string email
     try
     {
         sprintf(query, "Insert into dogfight.user(userId, passHash, nickName, email) values"
-                   "('%s', '%s', '%s', '%s')",
-                   id.c_str(), pass.c_str(), nick.c_str(), email.c_str());
+                       "('%s', '%s', '%s', '%s')",
+                id.c_str(), pass.c_str(), nick.c_str(), email.c_str());
         auto ans = manager.SendQuery(query);
-        auto row = mysql_fetch_row(ans);
 
-        if (std::atoi(row[0]) == 0)
-        {
-            temp_ans = 1; // true
-            msg = "true";
-        }
-        else
-        {
-            temp_ans = 0; // false
-            msg = "false";
-        }
+        temp_ans = 0;
+        msg = "Sign in success";
 
         mysql_free_result(ans);
     }
