@@ -263,8 +263,7 @@ void Server::SendPacket(int index, Json::Value packet)
 Json::Value Server::RecvPacket(int index)
 {
     string a;
-    char buf[255];
-    char line[255];
+    char buf[1024];
 
     while (true)
     {
