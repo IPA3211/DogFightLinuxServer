@@ -17,9 +17,7 @@ enum TcpPacketType{
     Answer = 0,
     Msg,
 
-    IdDuplication = 100,
-    NickDuplication,
-    EmailDuplication,
+    DuplicationCheck = 100,
 
     SignUp = 200,
     SignIn,
@@ -63,5 +61,6 @@ public:
     void ServeClient(Json::Value packet, int fd);
     void SendPacket(int socket, Json::Value packet);
     Json::Value RecvPacket(pollfd *socket_fd);
-    int CheckDuplication(string table, string column, string check);
+    Json::Value CheckDuplication(string table, string column, string check);
+    Json::Value SignUpUser(string id, string pass, string nick, string email);
 };

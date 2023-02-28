@@ -165,28 +165,27 @@ void Server::ServeClient(Json::Value packet, int client_socket)
     std::cout << packet["order"].asInt() << endl;
     std::cout << packet["msg"].asString() << endl;
 
-    Json::Value ansPacket;
-    ansPacket["index"] = packet["index"].asInt();
-    ansPacket["order"] = TcpPacketType::Answer;
+    Json::Value ans_packet;
+    Json::Value in_msg;
+
+    Json::Reader reader;
+    bool read = reader.parse(packet["msg"].asString(), in_msg);
+
+    Json::StyledWriter writer;
+    ans_packet["index"] = packet["index"].asInt();
+    ans_packet["order"] = TcpPacketType::Answer;
     switch (packet["order"].asInt())
     {
-    case TcpPacketType::IdDuplication:
-
-        ansPacket["msg"] = to_string(CheckDuplication("user", "UserID", packet["msg"].asString()));
-
-        SendPacket(client_socket, ansPacket);
+    case TcpPacketType::DuplicationCheck:
+        ans_packet["msg"] = writer.write(CheckDuplication(in_msg["table"].asString(), in_msg["column"].asString(), in_msg["check"].asString()));
         break;
-    case TcpPacketType::EmailDuplication:
-        ansPacket["msg"] = to_string(CheckDuplication("user", "Email", packet["msg"].asString()));
-
-        SendPacket(client_socket, ansPacket);
+    
+    case TcpPacketType::SignUp:
+        ans_packet["msg"] = writer.write(SignUpUser(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString()));
         break;
-
-    case TcpPacketType::NickDuplication:
-        ansPacket["msg"] = to_string(CheckDuplication("user", "NickName", packet["msg"].asString()));
-
-        SendPacket(client_socket, ansPacket);
     }
+    
+    SendPacket(client_socket, ans_packet);
 }
 
 void Server::SendPacket(int socket, Json::Value packet)
@@ -239,30 +238,78 @@ Json::Value Server::RecvPacket(pollfd *socket_fd)
     }
 }
 
-int Server::CheckDuplication(string table, string column, string check)
+Json::Value Server::CheckDuplication(string table, string column, string check)
 {
+    Json::Value ans_value;
     MySqlManager manager;
+    int temp_ans = 0;
+    string msg = "";
     try
     {
         auto ans = manager.SendQuery("SELECT count(*) FROM dogfight." + table + " where " + column + " = \"" + check + "\";");
         auto row = mysql_fetch_row(ans);
-        int temp_ans = 0;
 
         if (std::atoi(row[0]) == 0)
         {
             temp_ans = 1; // true
+            msg = "true";
         }
         else
         {
             temp_ans = 0; // false
+            msg = "false";
         }
 
         mysql_free_result(ans);
-        return temp_ans;
     }
     catch (const FFError &e)
     {
-        return -1; // error
+        temp_ans = -1; // error
+        msg = e.Label;
     }
-    return -1;
+
+    ans_value["result"] = temp_ans;
+    ans_value["msg"] = msg;
+
+    return ans_value;
+}
+
+Json::Value Server::SignUpUser(string id, string pass, string nick, string email)
+{
+    Json::Value ans_value;
+    MySqlManager manager;
+    int temp_ans = 0;
+    string msg = "";
+    char query[255];
+    try
+    {
+        sprintf(query, "Insert into dogfight.user(userId, passHash, nickName, email) values"
+                   "('%s', '%s', '%s', '%s')",
+                   id.c_str(), pass.c_str(), nick.c_str(), email.c_str());
+        auto ans = manager.SendQuery(query);
+        auto row = mysql_fetch_row(ans);
+
+        if (std::atoi(row[0]) == 0)
+        {
+            temp_ans = 1; // true
+            msg = "true";
+        }
+        else
+        {
+            temp_ans = 0; // false
+            msg = "false";
+        }
+
+        mysql_free_result(ans);
+    }
+    catch (const FFError &e)
+    {
+        temp_ans = -1; // error
+        msg = e.Label;
+    }
+
+    ans_value["result"] = temp_ans;
+    ans_value["msg"] = msg;
+
+    return ans_value;
 }
