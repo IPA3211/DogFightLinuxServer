@@ -13,12 +13,12 @@ MySqlManager::MySqlManager()
             con->prepareStatement("SELECT count(*) FROM dogfight.user WHERE NickName = ?;");
         statement_email_duplication =
             con->prepareStatement("SELECT count(*) FROM dogfight.user WHERE Email = ?;");
-        statement_sign_in =
-            con->prepareStatement("INSERT INTO dogfight.user(userId, passHash, nickName, email) VALUES(?, ?, ?, ?)");
         statement_sign_up =
-            con->prepareStatement("SELECT count(*) FROM dogfight.user WHERE UserId= ? and passHash= ?");
+            con->prepareStatement("INSERT INTO dogfight.user(userId, passHash, nickName, email) VALUES(?, ?, ?, ?)");
+        statement_sign_in =
+            con->prepareStatement("SELECT count(*) FROM dogfight.user WHERE UserId= ? and passHash= ?;");
     }
-    catch (sql::SQLException e)
+    catch (sql::SQLException &e)
     {
         printf("%s\n", e.what());
         throw e;
@@ -84,7 +84,7 @@ Json::Value MySqlManager::CheckDuplication(int column, string check)
 
         delete ans;
     }
-    catch (sql::SQLException e)
+    catch (sql::SQLException &e)
     {
         temp_ans = -1; // error
         msg = e.what();
@@ -103,16 +103,16 @@ Json::Value MySqlManager::SignUpUser(string id, string pass, string nick, string
     string msg = "";
     try
     {
-        statement_sign_in->setString(1, id);
-        statement_sign_in->setString(2, pass);
-        statement_sign_in->setString(3, nick);
-        statement_sign_in->setString(4, email);
-        statement_sign_in->executeUpdate();
+        statement_sign_up->setString(1, id);
+        statement_sign_up->setString(2, pass);
+        statement_sign_up->setString(3, nick);
+        statement_sign_up->setString(4, email);
+        statement_sign_up->executeUpdate();
 
         temp_ans = 0;
         msg = "Sign Up success";
     }
-    catch (sql::SQLException e)
+    catch (sql::SQLException &e)
     {
         temp_ans = -1; // error
         msg = e.what();
@@ -129,13 +129,13 @@ Json::Value MySqlManager::SignInUser(string id, string pass)
     Json::Value ans_value;
     int temp_ans = 0;
     string msg = "";
-    char query[255];
     try
     {
         statement_sign_in->setString(1, id);
         statement_sign_in->setString(2, pass);
         auto ans = statement_sign_in->executeQuery();
 
+        ans->next();
         if (ans->getInt("count(*)") == 0)
         {
             temp_ans = 1; // true
@@ -148,7 +148,7 @@ Json::Value MySqlManager::SignInUser(string id, string pass)
         }
         delete ans;
     }
-    catch (sql::SQLException e)
+    catch (sql::SQLException &e)
     {
         temp_ans = -1; // error
         msg = e.what();

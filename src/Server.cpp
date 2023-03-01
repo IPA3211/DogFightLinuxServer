@@ -1,5 +1,6 @@
 #include "./Server.hpp"
 #include "./ThreadPool.hpp"
+#include "./DFError.hpp"
 
 #define USE_SSL
 
@@ -168,7 +169,7 @@ void Server::AcceptThreadFunc()
 #ifdef USE_SSL
                     client_ssl_list[i] = ssl;
 #endif
-                    printf("accept!\n");
+                    printf("%d : accept!\n", i);
                     break;
                 }
             }
@@ -203,9 +204,16 @@ void Server::AcceptThreadFunc()
             if (client_list[i].revents & (POLLIN | POLLERR))
             {
                 int index = i;
-                auto root = RecvPacket(i);
-                auto result = pool.EnqueueJob([this, root, index]() -> void
-                                              { return this->ServeClient(root, index); });
+                try
+                {
+                    auto root = RecvPacket(i);
+                    auto result = pool.EnqueueJob([this, root, index]() -> void
+                                                  { return this->ServeClient(root, index); });
+                }
+                catch (const DFError &e)
+                {
+                    cout << e.Label << endl;
+                }
             }
         }
     }
@@ -227,6 +235,10 @@ void Server::ServeClient(Json::Value packet, int index)
     Json::Reader reader;
     bool read = reader.parse(packet["msg"].asString(), in_msg);
 
+    if(!read){
+        throw(DFError((char *)"json parse error"));
+    }
+
     Json::StyledWriter writer;
     ans_packet["index"] = packet["index"].asInt();
     ans_packet["order"] = TcpPacketType::Answer;
@@ -238,6 +250,10 @@ void Server::ServeClient(Json::Value packet, int index)
 
     case TcpPacketType::SignUp:
         ans_packet["msg"] = writer.write(mysqlManager->SignUpUser(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString()));
+        break;
+
+    case TcpPacketType::SignIn:
+        ans_packet["msg"] = writer.write(mysqlManager->SignInUser(in_msg["id"].asString(), in_msg["pw"].asString()));
         break;
     }
 
@@ -275,12 +291,13 @@ Json::Value Server::RecvPacket(int index)
             SSL_free(client_ssl_list[index]);
 #endif
             client_list[index].fd = -1;
+            printf("%d : bye!\n", index);
             break;
         }
         else
         {
             a += buf;
-            if (recv_amt < sizeof(buf))
+            if (recv_amt < (int)sizeof(buf))
             {
                 break;
             }
@@ -293,12 +310,10 @@ Json::Value Server::RecvPacket(int index)
 
     if (parsingRet == false)
     {
-        std::cout << "Failed to parse Json" + a << endl;
-        return root;
+        throw DFError((char *)"Failed to parse Json");
     }
     else
     {
-        int fd = client_list[index].fd;
         return root;
     }
 }
