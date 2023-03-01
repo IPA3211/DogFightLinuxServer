@@ -9,10 +9,12 @@
 #include <sys/socket.h>
 #include <sys/poll.h> 
 #include <iostream>
-#include "./json/json.h"
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+
+#include "./json/json.h"
+#include "./MySqlManager.hpp"
 
 using namespace std;
 
@@ -48,6 +50,7 @@ private:
     std::mutex client_list_mutex;
 
     std::thread *accept_thread;
+    MySqlManager *mysqlManager;
 
     bool is_accept_looping = false;
 
@@ -65,6 +68,4 @@ public:
     void ServeClient(Json::Value packet, int fd);
     void SendPacket(int socket, Json::Value packet);
     Json::Value RecvPacket(int index);
-    Json::Value CheckDuplication(string table, string column, string check);
-    Json::Value SignUpUser(string id, string pass, string nick, string email);
 };

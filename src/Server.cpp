@@ -1,7 +1,5 @@
 #include "./Server.hpp"
-#include "./json/json.h"
 #include "./ThreadPool.hpp"
-#include "./MySqlManager.hpp"
 
 #define USE_SSL
 
@@ -33,6 +31,9 @@ Server::~Server()
             accept_thread->join();
         }
     }
+
+    delete accept_thread;
+    delete mysqlManager;
 }
 
 void Server::Start()
@@ -41,6 +42,7 @@ void Server::Start()
     init_openssl();
 #endif
     is_accept_looping = true;
+    mysqlManager = new MySqlManager();
     accept_thread = new std::thread([this]()
                                     { this->AcceptThreadFunc(); });
 }
@@ -201,16 +203,9 @@ void Server::AcceptThreadFunc()
             if (client_list[i].revents & (POLLIN | POLLERR))
             {
                 int index = i;
-                try
-                {
-                    auto root = RecvPacket(i);
-                    auto result = pool.EnqueueJob([this, root, index]() -> void
-                                                  { return this->ServeClient(root, index); });
-                }
-                catch (const FFError &e)
-                {
-                    cout << e.Label << endl;
-                }
+                auto root = RecvPacket(i);
+                auto result = pool.EnqueueJob([this, root, index]() -> void
+                                              { return this->ServeClient(root, index); });
             }
         }
     }
@@ -238,11 +233,11 @@ void Server::ServeClient(Json::Value packet, int index)
     switch (packet["order"].asInt())
     {
     case TcpPacketType::DuplicationCheck:
-        ans_packet["msg"] = writer.write(CheckDuplication(in_msg["table"].asString(), in_msg["column"].asString(), in_msg["check"].asString()));
+        ans_packet["msg"] = writer.write(mysqlManager->CheckDuplication(in_msg["column"].asInt(), in_msg["check"].asString()));
         break;
 
     case TcpPacketType::SignUp:
-        ans_packet["msg"] = writer.write(SignUpUser(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString()));
+        ans_packet["msg"] = writer.write(mysqlManager->SignUpUser(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString()));
         break;
     }
 
@@ -299,78 +294,11 @@ Json::Value Server::RecvPacket(int index)
     if (parsingRet == false)
     {
         std::cout << "Failed to parse Json" + a << endl;
-        throw FFError((char *)"Failed to parse Json");
+        return root;
     }
     else
     {
         int fd = client_list[index].fd;
         return root;
     }
-}
-
-Json::Value Server::CheckDuplication(string table, string column, string check)
-{
-    Json::Value ans_value;
-    MySqlManager manager;
-    int temp_ans = 0;
-    string msg = "";
-    try
-    {
-        auto ans = manager.SendQuery("SELECT count(*) FROM dogfight." + table + " where " + column + " = \"" + check + "\";");
-        auto row = mysql_fetch_row(ans);
-
-        if (std::atoi(row[0]) == 0)
-        {
-            temp_ans = 1; // true
-            msg = "true";
-        }
-        else
-        {
-            temp_ans = 0; // false
-            msg = "false";
-        }
-
-        mysql_free_result(ans);
-    }
-    catch (const FFError &e)
-    {
-        temp_ans = -1; // error
-        msg = e.Label;
-    }
-
-    ans_value["result"] = temp_ans;
-    ans_value["msg"] = msg;
-
-    return ans_value;
-}
-
-Json::Value Server::SignUpUser(string id, string pass, string nick, string email)
-{
-    Json::Value ans_value;
-    MySqlManager manager;
-    int temp_ans = 0;
-    string msg = "";
-    char query[255];
-    try
-    {
-        sprintf(query, "Insert into dogfight.user(userId, passHash, nickName, email) values"
-                       "('%s', '%s', '%s', '%s')",
-                id.c_str(), pass.c_str(), nick.c_str(), email.c_str());
-        auto ans = manager.SendQuery(query);
-
-        temp_ans = 0;
-        msg = "Sign in success";
-
-        mysql_free_result(ans);
-    }
-    catch (const FFError &e)
-    {
-        temp_ans = -1; // error
-        msg = e.Label;
-    }
-
-    ans_value["result"] = temp_ans;
-    ans_value["msg"] = msg;
-
-    return ans_value;
 }

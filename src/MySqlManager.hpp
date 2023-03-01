@@ -1,80 +1,50 @@
+#pragma once
+
 #include <iostream>
 #include <string>
-#include "/usr/include/mysql/mysql.h"
+#include <mysql_driver.h>
+#include <mysql_connection.h>
+#include <cppconn/prepared_statement.h>
+#include <mysql_error.h>
 
-class FFError
+#include "./json/json.h"
+
+using namespace std;
+
+enum Table
 {
-public:
-    std::string Label;
+    User
+};
 
-    FFError() { Label = (char *)"Generic Error"; }
-    FFError(char *message) { Label = message; }
-    ~FFError() {}
-    inline const char *GetMessage(void) { return Label.c_str(); }
+enum UserTableColumn
+{
+    IDpk,
+    UserId,
+    PassHash,
+    NickName,
+    Email,
 };
 
 class MySqlManager
 {
 private:
-    MYSQL *MySQLConnection = NULL;
+    sql::mysql::MySQL_Driver *driver;
+    sql::Connection *con;
+
+    sql::PreparedStatement *statement_id_duplication;
+    sql::PreparedStatement *statement_nick_duplication;
+    sql::PreparedStatement *statement_email_duplication;
+    sql::PreparedStatement *statement_sign_in;
+    sql::PreparedStatement *statement_sign_up;
 
 public:
     static MySqlManager &instance;
     MySqlManager(/* args */);
-    MYSQL_RES *SendQuery(std::string qurry);
+    sql::ResultSet *SendQuery(std::string qurry);
+
+    Json::Value CheckDuplication(int column, string check);
+    Json::Value SignUpUser(string id, string pass, string nick, string email);
+    Json::Value SignInUser(string id, string pass);
+
     ~MySqlManager();
 };
-
-MySqlManager::MySqlManager(/* args */)
-{
-    std::string hostName = "localhost";
-    std::string userId = "dogfight_user";
-    std::string password = "980706";
-    std::string DB = "dogfight";
-
-    MySQLConnection = mysql_init(NULL);
-
-    try
-    {
-        MYSQL *MySQLConRet = mysql_real_connect(MySQLConnection,
-                                                hostName.c_str(),
-                                                userId.c_str(),
-                                                password.c_str(),
-                                                DB.c_str(),
-                                                0,
-                                                NULL,
-                                                0);
-
-        if (MySQLConRet == NULL)
-        {
-            throw FFError((char *)mysql_error(MySQLConnection));
-        }
-    }
-    catch (FFError e)
-    {
-        printf("%s\n", e.Label.c_str());
-        throw e;
-    }
-}
-
-MYSQL_RES *MySqlManager::SendQuery(std::string qurry)
-{
-    MYSQL_RES *mysqlResult;
-    int mysqlStatus = mysql_query(MySQLConnection, qurry.c_str());
-
-    if (mysqlStatus)
-    {
-        throw FFError((char *)mysql_error(MySQLConnection));
-    }
-    else
-    {
-        mysqlResult = mysql_store_result(MySQLConnection); // Get the Result Set
-    }
-
-    return mysqlResult;
-}
-
-MySqlManager::~MySqlManager()
-{
-    mysql_close(MySQLConnection);
-}

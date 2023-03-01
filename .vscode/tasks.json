@@ -11,7 +11,8 @@
                 "-o",
                 "${workspaceFolder}/bin/server",
                 "`mysql_config --cflags`",
-                "`mysql_config --libs`"
+                "`mysql_config --libs`",
+                "-lmysqlcppconn",
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
