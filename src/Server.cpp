@@ -1,8 +1,7 @@
 #include "./Server.hpp"
 #include "./ThreadPool.hpp"
 #include "./DFError.hpp"
-
-#define USE_SSL
+#include "Server.hpp"
 
 void init_openssl()
 {
@@ -32,6 +31,16 @@ Server::~Server()
             accept_thread->join();
         }
     }
+
+    for(int i = 0; i < DFLT_NUM_MAX_CLIENT; i++){
+        delete client_data_list[i];
+    }
+    
+    for (auto &&i : room_data_list)
+    {
+        delete i;
+    }
+    
 
     delete accept_thread;
     delete mysqlManager;
@@ -76,9 +85,9 @@ void Server::broadCast_to_all_client(string msg)
 {
     for (int i = 1; i < DFLT_NUM_MAX_CLIENT; i++)
     {
-        if (client_list[i].fd != -1)
+        if (client_socket_list[i].fd != -1)
         {
-            send(client_list[i].fd, msg.c_str(), msg.length() + 1, 0);
+            send(client_socket_list[i].fd, msg.c_str(), msg.length() + 1, 0);
         }
     }
 }
@@ -123,12 +132,13 @@ void Server::AcceptThreadFunc()
 
 #endif
 
-    client_list[0].fd = socket_fd;
-    client_list[0].events = POLLIN;
+    client_socket_list[0].fd = socket_fd;
+    client_socket_list[0].events = POLLIN;
+    room_data_list.push_back(new Room());
 
     for (i = 1; i < DFLT_NUM_MAX_CLIENT; i++)
     {
-        client_list[i].fd = -1;
+        client_socket_list[i].fd = -1;
     }
 
     maxi = 0;
@@ -138,12 +148,12 @@ void Server::AcceptThreadFunc()
     printf("server start!\n");
     while (is_accept_looping)
     {
-        int nread = poll(client_list, maxi + i, -1);
+        int nread = poll(client_socket_list, maxi + i, -1);
 
         socklen_t clilen;
         struct sockaddr_in clientaddr;
 
-        if (client_list[0].revents & POLLIN)
+        if (client_socket_list[0].revents & POLLIN)
         {
             clilen = sizeof(clientaddr);
             int client_sockfd = accept(socket_fd,
@@ -163,9 +173,9 @@ void Server::AcceptThreadFunc()
 
             for (i = 1; i < DFLT_NUM_MAX_CLIENT; i++)
             {
-                if (client_list[i].fd < 0)
+                if (client_socket_list[i].fd < 0)
                 {
-                    client_list[i].fd = client_sockfd;
+                    client_socket_list[i].fd = client_sockfd;
 #ifdef USE_SSL
                     client_ssl_list[i] = ssl;
 #endif
@@ -185,7 +195,7 @@ void Server::AcceptThreadFunc()
                 continue;
             }
 
-            client_list[i].events = POLLIN;
+            client_socket_list[i].events = POLLIN;
 
             if (i > maxi)
             {
@@ -198,11 +208,11 @@ void Server::AcceptThreadFunc()
 
         for (i = 1; i <= maxi; i++)
         {
-            int sockfd = client_list[i].fd;
+            int sockfd = client_socket_list[i].fd;
             if (sockfd < 0)
                 continue;
 
-            if (client_list[i].revents & (POLLIN | POLLERR))
+            if (client_socket_list[i].revents & (POLLIN | POLLERR))
             {
                 int index = i;
                 try
@@ -258,24 +268,34 @@ void Server::serve_client(Json::Value packet, int index)
         ans_packet["msg"] = writer.write(mysqlManager->signin_user(in_msg["id"].asString(), in_msg["pw"].asString(), &client_data_list[index]));
         if (client_data_list[index] != nullptr)
         {
-            client_data_list[index]->bind_socket(&client_list[index], client_ssl_list[index]);
+            client_data_list[index]->bind_socket(&client_socket_list[index], client_ssl_list[index]);
         }
         break;
     }
 
-    send_packet(index, ans_packet);
+#ifdef USE_SSL
+    send_packet(client_ssl_list[index], ans_packet);
+#else
+    send_packet(&client_list[index], ans_packet);
+#endif
 }
 
-void Server::send_packet(int index, Json::Value packet)
+#ifdef USE_SSL
+void Server::send_packet(SSL *ssl, Json::Value packet)
 {
     Json::StyledWriter writer;
     std::string outputConfig = writer.write(packet);
-#ifdef USE_SSL
-    SSL_write(client_ssl_list[index], outputConfig.c_str(), outputConfig.length() + 1);
-#else
-    send(client_list[index].fd, outputConfig.c_str(), outputConfig.length() + 1, 0);
-#endif
+    SSL_write(ssl, outputConfig.c_str(), outputConfig.length() + 1);
 }
+
+#else
+void Server::send_packet(pollfd *poll, Json::Value packet)
+{
+    Json::StyledWriter writer;
+    std::string outputConfig = writer.write(packet);
+    send(poll->fd, outputConfig.c_str(), outputConfig.length() + 1, 0);
+}
+#endif
 
 Json::Value Server::recv_packet(int index)
 {
@@ -292,12 +312,12 @@ Json::Value Server::recv_packet(int index)
 #endif
         if (recv_amt <= 0)
         {
-            close(client_list[index].fd);
+            close(client_socket_list[index].fd);
 #ifdef USE_SSL
             SSL_free(client_ssl_list[index]);
             client_ssl_list[index] = nullptr;
 #endif
-            client_list[index].fd = -1;
+            client_socket_list[index].fd = -1;
 
             if (client_data_list[index] != nullptr)
             {

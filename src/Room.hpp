@@ -2,15 +2,18 @@
 
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 #include "./Client.hpp"
+#include "./Server.hpp"
+#include "./json/json.h"
 
 class Room
 {
 private:
     std::string name;
     Client *host;
-    std::vector<Client *> member;
+    std::vector<Client *> member_list;
 public:
     Room();
     ~Room();
@@ -18,6 +21,6 @@ public:
     void join_client(Client *client);
     void exit_client(Client *client);
 
-    void send_packet_to_all();
+    std::vector<Client *> get_client_list();
 };
 

@@ -16,6 +16,9 @@
 #include "./json/json.h"
 #include "./MySqlManager.hpp"
 #include "./Client.hpp"
+#include "./Room.hpp"
+
+#define USE_SSL
 
 using namespace std;
 
@@ -35,6 +38,7 @@ enum TcpPacketType{
 class Server
 {
     #define DFLT_NUM_MAX_CLIENT 20
+    #define DFLT_NUM_MAX_ROOM 20
 
     const int DFLT_SERV_PORT = 7000;
 
@@ -46,9 +50,12 @@ class Server
     const int TIME_RCV_TIMEOUT = 2;
 
 private:
-    pollfd client_list[DFLT_NUM_MAX_CLIENT];
+    pollfd client_socket_list[DFLT_NUM_MAX_CLIENT];
+#ifdef USE_SSL
     SSL *client_ssl_list[DFLT_NUM_MAX_CLIENT];
+#endif
     Client *client_data_list[DFLT_NUM_MAX_CLIENT] = {nullptr, };
+    std::vector<Room *> room_data_list;
 
     std::mutex client_list_mutex;
 
@@ -69,6 +76,11 @@ public:
     void stop();
     void broadCast_to_all_client(string msg);
     void serve_client(Json::Value packet, int fd);
-    void send_packet(int socket, Json::Value packet);
+    
+#ifdef USE_SSL
+    void send_packet(SSL *ssl, Json::Value packet);
+#else
+    void send_packet(pollfd *poll, Json::Value packet);
+#endif
     Json::Value recv_packet(int index);
 };

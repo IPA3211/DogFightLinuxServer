@@ -14,10 +14,10 @@ private:
     int _id;
     std::string _nickname;
 
-    pollfd *socket;
-    SSL *ssl;
+    pollfd *_socket;
+    SSL *_ssl;
 
-    Room *room = nullptr;
+    Room *_room = nullptr;
 
 public:
     Client(int id, std::string nickname);
