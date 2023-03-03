@@ -48,7 +48,7 @@ class Server
 private:
     pollfd client_list[DFLT_NUM_MAX_CLIENT];
     SSL *client_ssl_list[DFLT_NUM_MAX_CLIENT];
-    Client *client_data_list[DFLT_NUM_MAX_CLIENT] = {NULL, };
+    Client *client_data_list[DFLT_NUM_MAX_CLIENT] = {nullptr, };
 
     std::mutex client_list_mutex;
 
