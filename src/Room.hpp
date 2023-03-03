@@ -17,5 +17,7 @@ public:
 
     void join_client(Client *client);
     void exit_client(Client *client);
+
+    void send_packet_to_all();
 };
 

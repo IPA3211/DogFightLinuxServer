@@ -10,5 +10,5 @@ public:
     DFError() { Label = (char *)"Generic Error"; }
     DFError(char *message) { Label = message; }
     ~DFError() {}
-    inline const char *GetMessage(void) { return Label.c_str(); }
+    inline const char *get_message(void) { return Label.c_str(); }
 };

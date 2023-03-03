@@ -41,11 +41,11 @@ private:
 public:
     static MySqlManager &instance;
     MySqlManager(/* args */);
-    sql::ResultSet *SendQuery(std::string qurry);
-
-    Json::Value CheckDuplication(int column, string check);
-    Json::Value SignUpUser(string id, string pass, string nick, string email);
-    Json::Value SignInUser(string id, string pass, Client **client);
-
     ~MySqlManager();
+    sql::ResultSet *send_query(std::string qurry);
+
+    Json::Value check_duplication(int column, string check);
+    Json::Value signup_user(string id, string pass, string nick, string email);
+    Json::Value signin_user(string id, string pass, Client **client);
+
 };

@@ -65,10 +65,10 @@ public:
     Server(/* args */);
     ~Server();
 
-    void Start();
-    void Stop();
-    void BroadCastToAllClient(string msg);
-    void ServeClient(Json::Value packet, int fd);
-    void SendPacket(int socket, Json::Value packet);
-    Json::Value RecvPacket(int index);
+    void start();
+    void stop();
+    void broadCast_to_all_client(string msg);
+    void serve_client(Json::Value packet, int fd);
+    void send_packet(int socket, Json::Value packet);
+    Json::Value recv_packet(int index);
 };

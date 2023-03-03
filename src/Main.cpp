@@ -10,7 +10,7 @@
 int main(int argc, char *argv[])
 {
     Server *server = new Server();
-    server->Start();
+    server->start();
 
     string input;
     
@@ -18,11 +18,11 @@ int main(int argc, char *argv[])
         cin >> input;
         
         if(input == "q"){
-            auto aa = std::async([server] () {server->Stop ();});
+            auto aa = std::async([server] () {server->stop ();});
             break;
         }
         else{
-            server -> BroadCastToAllClient(input);
+            server -> broadCast_to_all_client(input);
         }
     }
 }

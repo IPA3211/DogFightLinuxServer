@@ -37,7 +37,7 @@ Server::~Server()
     delete mysqlManager;
 }
 
-void Server::Start()
+void Server::start()
 {
 #ifdef USE_SSL
     init_openssl();
@@ -48,7 +48,7 @@ void Server::Start()
                                     { this->AcceptThreadFunc(); });
 }
 
-void Server::Stop()
+void Server::stop()
 {
     is_accept_looping = false;
 
@@ -72,7 +72,7 @@ void Server::Stop()
 #endif
 }
 
-void Server::BroadCastToAllClient(string msg)
+void Server::broadCast_to_all_client(string msg)
 {
     for (int i = 1; i < DFLT_NUM_MAX_CLIENT; i++)
     {
@@ -207,9 +207,9 @@ void Server::AcceptThreadFunc()
                 int index = i;
                 try
                 {
-                    auto root = RecvPacket(i);
+                    auto root = recv_packet(i);
                     auto result = pool.EnqueueJob([this, root, index]() -> void
-                                                  { return this->ServeClient(root, index); });
+                                                  { return this->serve_client(root, index); });
                 }
                 catch (const DFError &e)
                 {
@@ -224,7 +224,7 @@ void Server::AcceptThreadFunc()
 #endif
 }
 
-void Server::ServeClient(Json::Value packet, int index)
+void Server::serve_client(Json::Value packet, int index)
 {
     std::cout << packet["index"].asInt() << endl;
     std::cout << packet["order"].asInt() << endl;
@@ -247,15 +247,15 @@ void Server::ServeClient(Json::Value packet, int index)
     switch (packet["order"].asInt())
     {
     case TcpPacketType::DuplicationCheck:
-        ans_packet["msg"] = writer.write(mysqlManager->CheckDuplication(in_msg["column"].asInt(), in_msg["check"].asString()));
+        ans_packet["msg"] = writer.write(mysqlManager->check_duplication(in_msg["column"].asInt(), in_msg["check"].asString()));
         break;
 
     case TcpPacketType::SignUp:
-        ans_packet["msg"] = writer.write(mysqlManager->SignUpUser(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString()));
+        ans_packet["msg"] = writer.write(mysqlManager->signup_user(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString()));
         break;
 
     case TcpPacketType::SignIn:
-        ans_packet["msg"] = writer.write(mysqlManager->SignInUser(in_msg["id"].asString(), in_msg["pw"].asString(), &client_data_list[index]));
+        ans_packet["msg"] = writer.write(mysqlManager->signin_user(in_msg["id"].asString(), in_msg["pw"].asString(), &client_data_list[index]));
         if (client_data_list[index] != nullptr)
         {
             client_data_list[index]->bind_socket(&client_list[index], client_ssl_list[index]);
@@ -263,10 +263,10 @@ void Server::ServeClient(Json::Value packet, int index)
         break;
     }
 
-    SendPacket(index, ans_packet);
+    send_packet(index, ans_packet);
 }
 
-void Server::SendPacket(int index, Json::Value packet)
+void Server::send_packet(int index, Json::Value packet)
 {
     Json::StyledWriter writer;
     std::string outputConfig = writer.write(packet);
@@ -277,7 +277,7 @@ void Server::SendPacket(int index, Json::Value packet)
 #endif
 }
 
-Json::Value Server::RecvPacket(int index)
+Json::Value Server::recv_packet(int index)
 {
     string a;
     char buf[1024];

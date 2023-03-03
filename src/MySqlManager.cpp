@@ -31,7 +31,7 @@ MySqlManager::~MySqlManager()
     delete con;
 }
 
-sql::ResultSet *MySqlManager::SendQuery(std::string qurry)
+sql::ResultSet *MySqlManager::send_query(std::string qurry)
 {
     sql::Statement *stmt;
     sql::ResultSet *res;
@@ -43,7 +43,7 @@ sql::ResultSet *MySqlManager::SendQuery(std::string qurry)
     return res;
 }
 
-Json::Value MySqlManager::CheckDuplication(int column, string check)
+Json::Value MySqlManager::check_duplication(int column, string check)
 {
     Json::Value ans_value;
 
@@ -96,7 +96,7 @@ Json::Value MySqlManager::CheckDuplication(int column, string check)
     return ans_value;
 }
 
-Json::Value MySqlManager::SignUpUser(string id, string pass, string nick, string email)
+Json::Value MySqlManager::signup_user(string id, string pass, string nick, string email)
 {
     Json::Value ans_value;
     int temp_ans = 0;
@@ -124,7 +124,7 @@ Json::Value MySqlManager::SignUpUser(string id, string pass, string nick, string
     return ans_value;
 }
 
-Json::Value MySqlManager::SignInUser(string id, string pass, Client **client)
+Json::Value MySqlManager::signin_user(string id, string pass, Client **client)
 {
     Json::Value ans_value;
     int temp_ans = 0;
