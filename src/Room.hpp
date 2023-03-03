@@ -1,16 +1,21 @@
+#pragma once
+
+#include <iostream>
+#include <vector>
+
+#include "./Client.hpp"
+
 class Room
 {
 private:
-    /* data */
+    std::string name;
+    Client *host;
+    std::vector<Client *> member;
 public:
-    Room(/* args */);
+    Room();
     ~Room();
+
+    void join_client(Client *client);
+    void exit_client(Client *client);
 };
 
-Room::Room(/* args */)
-{
-}
-
-Room::~Room()
-{
-}

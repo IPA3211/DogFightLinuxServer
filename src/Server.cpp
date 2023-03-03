@@ -236,7 +236,8 @@ void Server::ServeClient(Json::Value packet, int index)
     Json::Reader reader;
     bool read = reader.parse(packet["msg"].asString(), in_msg);
 
-    if(!read){
+    if (!read)
+    {
         throw(DFError((char *)"json parse error"));
     }
 
@@ -255,6 +256,10 @@ void Server::ServeClient(Json::Value packet, int index)
 
     case TcpPacketType::SignIn:
         ans_packet["msg"] = writer.write(mysqlManager->SignInUser(in_msg["id"].asString(), in_msg["pw"].asString(), &client_data_list[index]));
+        if (client_data_list[index] != nullptr)
+        {
+            client_data_list[index]->bind_socket(&client_list[index], client_ssl_list[index]);
+        }
         break;
     }
 
@@ -294,7 +299,8 @@ Json::Value Server::RecvPacket(int index)
 #endif
             client_list[index].fd = -1;
 
-            if(client_data_list[index] != nullptr){
+            if (client_data_list[index] != nullptr)
+            {
                 delete client_data_list[index];
                 client_data_list[index] = nullptr;
             }
