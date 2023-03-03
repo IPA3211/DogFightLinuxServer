@@ -47,5 +47,4 @@ public:
     Json::Value check_duplication(int column, string check);
     Json::Value signup_user(string id, string pass, string nick, string email);
     Json::Value signin_user(string id, string pass, Client **client);
-
 };

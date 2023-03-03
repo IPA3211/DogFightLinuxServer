@@ -4,7 +4,7 @@ MySqlManager::MySqlManager()
 {
     try
     {
-        driver = sql::mysql::get_mysql_driver_instance();
+        driver = sql::mysql::get_driver_instance();
         con = driver->connect("tcp://127.0.0.1:3306", "dogfight_user", "980706");
 
         statement_id_duplication =
@@ -27,7 +27,11 @@ MySqlManager::MySqlManager()
 
 MySqlManager::~MySqlManager()
 {
-    delete driver;
+    delete statement_id_duplication;
+    delete statement_nick_duplication;
+    delete statement_email_duplication;
+    delete statement_sign_up;
+    delete statement_sign_in;
     delete con;
 }
 

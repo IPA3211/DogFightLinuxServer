@@ -25,4 +25,6 @@ int main(int argc, char *argv[])
             server -> broadCast_to_all_client(input);
         }
     }
+
+    delete server;
 }

@@ -139,16 +139,18 @@ void Server::AcceptThreadFunc()
     for (i = 1; i < DFLT_NUM_MAX_CLIENT; i++)
     {
         client_socket_list[i].fd = -1;
+        client_socket_list[i].events = 0;
     }
 
     maxi = 0;
+    i = 1;
 #ifdef USE_SSL
     printf("ssl ");
 #endif
     printf("server start!\n");
     while (is_accept_looping)
     {
-        int nread = poll(client_socket_list, maxi + i, -1);
+        int nread = poll(client_socket_list, i + maxi, -1); // valgrind error -1인 곳 접근하면 그런듯?
 
         socklen_t clilen;
         struct sockaddr_in clientaddr;

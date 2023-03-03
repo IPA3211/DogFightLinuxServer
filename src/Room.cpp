@@ -8,7 +8,7 @@ Room::~Room()
 {
     for (auto &&i : member_list)
     {
-        
+        i->set_room(nullptr);
     }
 }
 
