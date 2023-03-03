@@ -180,6 +180,7 @@ void Server::AcceptThreadFunc()
                 close(client_sockfd);
 #ifdef USE_SSL
                 SSL_free(ssl);
+                ssl = 0;
 #endif
                 continue;
             }
@@ -253,7 +254,7 @@ void Server::ServeClient(Json::Value packet, int index)
         break;
 
     case TcpPacketType::SignIn:
-        ans_packet["msg"] = writer.write(mysqlManager->SignInUser(in_msg["id"].asString(), in_msg["pw"].asString()));
+        ans_packet["msg"] = writer.write(mysqlManager->SignInUser(in_msg["id"].asString(), in_msg["pw"].asString(), &client_data_list[index]));
         break;
     }
 
@@ -289,8 +290,15 @@ Json::Value Server::RecvPacket(int index)
             close(client_list[index].fd);
 #ifdef USE_SSL
             SSL_free(client_ssl_list[index]);
+            client_ssl_list[index] = nullptr;
 #endif
             client_list[index].fd = -1;
+
+            if(client_data_list[index] != nullptr){
+                delete client_data_list[index];
+                client_data_list[index] = nullptr;
+            }
+
             printf("%d : bye!\n", index);
             break;
         }

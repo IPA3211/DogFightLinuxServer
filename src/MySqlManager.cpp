@@ -16,7 +16,7 @@ MySqlManager::MySqlManager()
         statement_sign_up =
             con->prepareStatement("INSERT INTO dogfight.user(userId, passHash, nickName, email) VALUES(?, ?, ?, ?)");
         statement_sign_in =
-            con->prepareStatement("SELECT count(*) FROM dogfight.user WHERE UserId= ? and passHash= ?;");
+            con->prepareStatement("SELECT * FROM dogfight.user WHERE UserId= ? and passHash= ?;");
     }
     catch (sql::SQLException &e)
     {
@@ -124,7 +124,7 @@ Json::Value MySqlManager::SignUpUser(string id, string pass, string nick, string
     return ans_value;
 }
 
-Json::Value MySqlManager::SignInUser(string id, string pass)
+Json::Value MySqlManager::SignInUser(string id, string pass, Client **client)
 {
     Json::Value ans_value;
     int temp_ans = 0;
@@ -135,10 +135,13 @@ Json::Value MySqlManager::SignInUser(string id, string pass)
         statement_sign_in->setString(2, pass);
         auto ans = statement_sign_in->executeQuery();
 
-        ans->next();
-        if (ans->getInt("count(*)") == 0)
+        
+        if (ans->rowsCount() != 0)
         {
             temp_ans = 1; // true
+            ans->next();
+            *(client) = new Client(ans->getInt("idpk"), ans->getString("nickname"));
+            
             msg = "Sign in success";
         }
         else

@@ -8,6 +8,7 @@
 #include <mysql_error.h>
 
 #include "./json/json.h"
+#include "./Client.hpp"
 
 using namespace std;
 
@@ -44,7 +45,7 @@ public:
 
     Json::Value CheckDuplication(int column, string check);
     Json::Value SignUpUser(string id, string pass, string nick, string email);
-    Json::Value SignInUser(string id, string pass);
+    Json::Value SignInUser(string id, string pass, Client **client);
 
     ~MySqlManager();
 };

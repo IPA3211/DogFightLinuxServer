@@ -15,6 +15,7 @@
 
 #include "./json/json.h"
 #include "./MySqlManager.hpp"
+#include "./Client.hpp"
 
 using namespace std;
 
@@ -47,6 +48,8 @@ class Server
 private:
     pollfd client_list[DFLT_NUM_MAX_CLIENT];
     SSL *client_ssl_list[DFLT_NUM_MAX_CLIENT];
+    Client *client_data_list[DFLT_NUM_MAX_CLIENT] = {NULL, };
+
     std::mutex client_list_mutex;
 
     std::thread *accept_thread;
