@@ -372,7 +372,7 @@ Json::Value Server::send_chat(Client *client, string msg)
 
     packet["index"] = 0;
     packet["order"] = TcpPacketType::Chat;
-    packet["msg"] = writer.write(msg);
+    packet["msg"] = writer.write(packet_msg);
 
     auto client_list_temp = client->get_room()->get_client_list();
 
