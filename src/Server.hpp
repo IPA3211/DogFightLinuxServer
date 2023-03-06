@@ -25,6 +25,8 @@ using namespace std;
 enum TcpPacketType{
     Answer = 0,
     Msg,
+    Chat,
+    SecretChat,
 
     DuplicationCheck = 100,
 

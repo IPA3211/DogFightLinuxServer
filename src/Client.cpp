@@ -26,6 +26,16 @@ std::string Client::get_nickname()
     return _nickname;
 }
 
+SSL *Client::get_ssl()
+{
+    return _ssl;
+}
+
+pollfd *Client::get_socket()
+{
+    return _socket;
+}
+
 void Client::bind_socket(pollfd *poll, SSL *ssl_sock)
 {
     _socket = poll;
@@ -34,5 +44,14 @@ void Client::bind_socket(pollfd *poll, SSL *ssl_sock)
 
 void Client::set_room(Room *room)
 {
-    _room = room;
+    if (room != nullptr)
+    {
+        _room = room;
+        _room->join_client(this);
+    }
+}
+
+Room *Client::get_room()
+{
+    return _room;
 }

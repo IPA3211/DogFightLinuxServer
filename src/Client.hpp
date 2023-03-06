@@ -25,6 +25,9 @@ public:
 
     int get_client_id();
     std::string get_nickname();
+    SSL *get_ssl();
+    pollfd *get_socket();
     void bind_socket(pollfd *poll, SSL *ssl_sock);
     void set_room(Room *room);
+    Room *get_room();
 };

@@ -254,24 +254,46 @@ void Server::serve_client(Json::Value packet, int index)
     }
 
     Json::StyledWriter writer;
-    ans_packet["index"] = packet["index"].asInt();
-    ans_packet["order"] = TcpPacketType::Answer;
     switch (packet["order"].asInt())
     {
     case TcpPacketType::DuplicationCheck:
+        ans_packet["index"] = packet["index"].asInt();
+        ans_packet["order"] = TcpPacketType::Answer;
         ans_packet["msg"] = writer.write(mysqlManager->check_duplication(in_msg["column"].asInt(), in_msg["check"].asString()));
         break;
 
     case TcpPacketType::SignUp:
+        ans_packet["index"] = packet["index"].asInt();
+        ans_packet["order"] = TcpPacketType::Answer;
         ans_packet["msg"] = writer.write(mysqlManager->signup_user(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString()));
         break;
 
     case TcpPacketType::SignIn:
+        ans_packet["index"] = packet["index"].asInt();
+        ans_packet["order"] = TcpPacketType::Answer;
         ans_packet["msg"] = writer.write(mysqlManager->signin_user(in_msg["id"].asString(), in_msg["pw"].asString(), &client_data_list[index]));
         if (client_data_list[index] != nullptr)
         {
             client_data_list[index]->bind_socket(&client_socket_list[index], client_ssl_list[index]);
+            client_data_list[index]->set_room(room_data_list[0]);
         }
+        break;
+
+    case TcpPacketType::Chat:
+        Json::Value msg;
+        msg["sender"] = client_data_list[index]->get_nickname();
+        msg["msg"] = in_msg["msg"];
+
+        ans_packet["index"] = packet["index"].asInt();
+        ans_packet["order"] = TcpPacketType::Chat;
+        ans_packet["msg"] = writer.write(msg);
+
+        auto client_list_temp = client_data_list[index]->get_room()->get_client_list();
+        for (auto &&c : client_list_temp)
+        {
+            send_packet(c->get_ssl(), ans_packet);
+        }
+        
         break;
     }
 
