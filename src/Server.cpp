@@ -32,15 +32,15 @@ Server::~Server()
         }
     }
 
-    for(int i = 0; i < DFLT_NUM_MAX_CLIENT; i++){
+    for (int i = 0; i < DFLT_NUM_MAX_CLIENT; i++)
+    {
         delete client_data_list[i];
     }
-    
+
     for (auto &&i : room_data_list)
     {
         delete i;
     }
-    
 
     delete accept_thread;
     delete mysqlManager;
@@ -254,23 +254,20 @@ void Server::serve_client(Json::Value packet, int index)
     }
 
     Json::StyledWriter writer;
+    ans_packet["index"] = packet["index"].asInt();
+    ans_packet["order"] = TcpPacketType::Answer;
+
     switch (packet["order"].asInt())
     {
     case TcpPacketType::DuplicationCheck:
-        ans_packet["index"] = packet["index"].asInt();
-        ans_packet["order"] = TcpPacketType::Answer;
         ans_packet["msg"] = writer.write(mysqlManager->check_duplication(in_msg["column"].asInt(), in_msg["check"].asString()));
         break;
 
     case TcpPacketType::SignUp:
-        ans_packet["index"] = packet["index"].asInt();
-        ans_packet["order"] = TcpPacketType::Answer;
         ans_packet["msg"] = writer.write(mysqlManager->signup_user(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString()));
         break;
 
     case TcpPacketType::SignIn:
-        ans_packet["index"] = packet["index"].asInt();
-        ans_packet["order"] = TcpPacketType::Answer;
         ans_packet["msg"] = writer.write(mysqlManager->signin_user(in_msg["id"].asString(), in_msg["pw"].asString(), &client_data_list[index]));
         if (client_data_list[index] != nullptr)
         {
@@ -280,20 +277,7 @@ void Server::serve_client(Json::Value packet, int index)
         break;
 
     case TcpPacketType::Chat:
-        Json::Value msg;
-        msg["sender"] = client_data_list[index]->get_nickname();
-        msg["msg"] = in_msg["msg"];
-
-        ans_packet["index"] = packet["index"].asInt();
-        ans_packet["order"] = TcpPacketType::Chat;
-        ans_packet["msg"] = writer.write(msg);
-
-        auto client_list_temp = client_data_list[index]->get_room()->get_client_list();
-        for (auto &&c : client_list_temp)
-        {
-            send_packet(c->get_ssl(), ans_packet);
-        }
-        
+        ans_packet["msg"] = writer.write(send_chat(client_data_list[index], in_msg["msg"].asString()));
         break;
     }
 
@@ -374,4 +358,44 @@ Json::Value Server::recv_packet(int index)
     {
         return root;
     }
+}
+
+Json::Value Server::send_chat(Client *client, string msg)
+{
+    Json::Value packet;
+    Json::Value packet_msg;
+
+    packet_msg["sender"] = client->get_nickname();
+    packet_msg["msg"] = msg;
+
+    Json::StyledWriter writer;
+
+    packet["index"] = 0;
+    packet["order"] = TcpPacketType::Chat;
+    packet["msg"] = writer.write(msg);
+
+    auto client_list_temp = client->get_room()->get_client_list();
+
+    Json::Value ans_packet;
+    ans_packet["result"] = 1;
+    ans_packet["msg"] = "success";
+
+    try
+    {
+        for (auto &&c : client_list_temp)
+        {
+#ifdef USE_SSL
+            send_packet(c->get_ssl(), packet);
+#else
+            send_packet(c->get_socket(), packet);
+#endif
+        }
+    }
+    catch (const std::exception &e)
+    {
+        ans_packet["result"] = -1;
+        ans_packet["msg"] = e.what();
+    }
+
+    return ans_packet;
 }

@@ -84,5 +84,7 @@ public:
 #else
     void send_packet(pollfd *poll, Json::Value packet);
 #endif
+
+    Json::Value send_chat(Client *client, string msg);
     Json::Value recv_packet(int index);
 };
