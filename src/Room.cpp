@@ -73,19 +73,30 @@ void Room::set_room_info(RoomInfo roominfo)
 
 RoomInfo Room::get_room_info()
 {
-    return RoomInfo();
+    return info;
 }
 
 int Room::get_member_count()
 {
-    return 0;
+    return member_list.size();
 }
 
-std::vector<Client *> Room::get_client_list()
+Json::Value Room::send_packet_all(int index, TcpPacketType type, Json::Value msg)
 {
-    return member_list;
-}
-
-void Room::send_packet_all(int index, TcpPacketType type, Json::Value msg)
-{
+    Json::Value ans_packet;
+    try
+    {
+        for (auto &&c : member_list)
+        {
+            server->send_packet(c->get_ssl(), 0, TcpPacketType::Chat, msg);
+        }
+        ans_packet["result"] = 1;
+        ans_packet["msg"] = "success";
+    }
+    catch (const std::exception &e)
+    {
+        ans_packet["result"] = -1;
+        ans_packet["msg"] = e.what();
+    }
+    return ans_packet;
 }

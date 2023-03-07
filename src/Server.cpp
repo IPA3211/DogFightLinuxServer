@@ -357,22 +357,7 @@ Json::Value Server::send_chat(Client *client, string msg)
     packet_msg["sender"] = client->get_nickname();
     packet_msg["msg"] = msg;
 
-    auto client_list_temp = client->get_room()->get_client_list();
-
-    try
-    {
-        for (auto &&c : client_list_temp)
-        {
-            send_packet(c->get_ssl(), 0, TcpPacketType::Chat, writer.write(packet_msg));
-        }
-        ans_packet["result"] = 1;
-        ans_packet["msg"] = "success";
-    }
-    catch (const std::exception &e)
-    {
-        ans_packet["result"] = -1;
-        ans_packet["msg"] = e.what();
-    }
+    client->get_room()->send_packet_all(0, TcpPacketType::Chat, packet_msg);
 
     return ans_packet;
 }
