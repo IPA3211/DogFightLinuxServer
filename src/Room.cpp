@@ -47,6 +47,10 @@ void Room::exit_client(Client *client)
             info.host = member_list.front();
             server->send_packet(info.host->get_ssl(), 0, TcpPacketType::RoomChangeHost, packet);
         }
+        else
+        {
+            server->delete_room(this);
+        }
     }
 }
 

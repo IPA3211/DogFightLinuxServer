@@ -274,6 +274,12 @@ void Server::serve_client(Json::Value packet, int index)
     send_packet(client_ssl_list[index], packet["index"].asInt(), TcpPacketType::Answer, msg);
 }
 
+void Server::delete_room(Room *room)
+{
+    room_data_list.erase(remove(room_data_list.begin(), room_data_list.end(), room), room_data_list.end());
+    delete room;
+}
+
 void Server::send_packet(SSL *ssl, Json::Value packet)
 {
     Json::StyledWriter writer;
