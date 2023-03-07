@@ -22,3 +22,15 @@ enum TcpPacketType{
 
     Quit = 999
 };
+
+enum DFErrorType
+{
+    ERR_GENERIC,
+    ERR_JSON_PARSE,
+
+    ERR_ROOM_PW = 100,
+    ERR_ROOM_FULL,
+    ERR_ROOM_INFO_FULL,
+
+    ERR_SQL_QUERY = 200,
+};

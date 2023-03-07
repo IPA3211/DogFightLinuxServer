@@ -1,18 +1,7 @@
 #pragma once
 
 #include <iostream>
-
-enum DFErrorType
-{
-    ERR_GENERIC,
-    ERR_JSON_PARSE,
-
-    ERR_ROOM_PW = 100,
-    ERR_ROOM_FULL,
-    ERR_ROOM_INFO_FULL,
-
-    ERR_SQL_QUERY = 200,
-};
+#include "./Enums.hpp"
 
 class DFError
 {
