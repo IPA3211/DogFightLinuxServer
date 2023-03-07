@@ -17,7 +17,7 @@ class DFError
 public:
     DFErrorType type;
     std::string Label;
-    
+
     DFError(DFErrorType t)
     {
         type = t;
@@ -41,6 +41,13 @@ public:
         }
     }
     ~DFError() {}
+    inline const Json::Value get_packet(void)
+    {
+        Json::Value packet;
+        packet["type"] = type;
+        packet["msg"] = Label;
+        return packet;
+    }
     inline const DFErrorType get_type(void) { return type; }
     inline const char *get_message(void) { return Label.c_str(); }
 };
