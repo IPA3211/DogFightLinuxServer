@@ -28,7 +28,7 @@ void Room::join_client(Client *client, std::string pw)
     }
 
     room_mutex.lock();
-    if (member_list.size() >= info.max_player)
+    if ((int)member_list.size() >= info.max_player)
     {
         room_mutex.unlock();
         throw DFError(ERR_ROOM_FULL);
@@ -63,7 +63,7 @@ void Room::exit_client(Client *client)
 void Room::set_room_info(RoomInfo roominfo)
 {
     room_mutex.lock();
-    if (member_list.size() > roominfo.max_player)
+    if ((int)member_list.size() > roominfo.max_player)
     {
         room_mutex.unlock();
         throw DFError(ERR_ROOM_INFO_FULL);

@@ -17,31 +17,9 @@
 #include "./MySqlManager.hpp"
 #include "./Client.hpp"
 #include "./Room.hpp"
+#include "./Enums.hpp"
 
 using namespace std;
-
-enum TcpPacketType{
-    Answer = 0,
-    Msg,
-    Chat,
-    SecretChat,
-
-    DuplicationCheck = 100,
-
-    SignUp = 200,
-    SignIn,
-    GetUserInfo,
-
-    RoomCreate = 300,
-    RoomChangeHost,
-    RoomChangeInfo,
-    RoomJoin,
-    RoomExit,
-    GetRoomList,
-    GetRoomInfo,
-
-    Quit = 999
-};
 
 class Server
 {
@@ -81,7 +59,16 @@ public:
     void start();
     void stop();
     void broadCast_to_all_client(string msg);
+
     void serve_client(Json::Value packet, int fd);
+    Json::Value duplication_check(int index, Json::Value msg);
+    Json::Value sign_up(int index, Json::Value msg);
+    Json::Value sign_in(int index, Json::Value msg);
+    Json::Value get_user_info(int index, Json::Value msg);
+    Json::Value send_chat(int index, Json::Value msg);
+    Json::Value room_create(int index, Json::Value msg);
+    Json::Value room_join(int index, Json::Value msg);
+    Json::Value room_list(int index, Json::Value msg);
 
     Room *new_room(RoomInfo info);
     void delete_room(Room *room);

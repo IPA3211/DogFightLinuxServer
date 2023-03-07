@@ -243,89 +243,143 @@ void Server::serve_client(Json::Value packet, int index)
     }
 
     Json::Value msg;
-    RoomInfo info;
 
     switch (packet["order"].asInt())
     {
     case TcpPacketType::DuplicationCheck:
-        msg = mysqlManager->check_duplication(in_msg["column"].asInt(), in_msg["check"].asString());
+        msg = duplication_check(index, in_msg);
         break;
-
     case TcpPacketType::SignUp:
-        msg = mysqlManager->signup_user(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString());
+        msg = sign_up(index, in_msg);
         break;
-
     case TcpPacketType::SignIn:
-        msg = mysqlManager->signin_user(in_msg["id"].asString(), in_msg["pw"].asString(), &client_data_list[index]);
-        if (client_data_list[index] != nullptr)
-        {
-            client_data_list[index]->bind_socket(&client_socket_list[index], client_ssl_list[index]);
-            try
-            {
-                client_data_list[index]->set_room(room_data_list[0], "");
-            }
-            catch (const DFError &e)
-            {
-                msg["result"] = -1;
-                msg["msg"] = e.Label;
-            }
-        }
+        msg = sign_in(index, in_msg);
         break;
     case TcpPacketType::GetUserInfo:
-        msg = mysqlManager->get_user_info(client_data_list[index]);
+        msg = get_user_info(index, in_msg);
+        break;
     case TcpPacketType::Chat:
-        msg = send_chat(client_data_list[index],
-                        in_msg["msg"].asString());
+        msg = send_chat(index, in_msg);
         break;
     case TcpPacketType::RoomCreate:
-        info.host = client_data_list[index];
-        info.is_private = in_msg["private"].asBool();
-        info.max_player = in_msg["max"].asInt();
-        info.name = in_msg["name"].asString();
-        info.pw = in_msg["pw"].asString();
-
-        auto room = new_room(info);
-        try
-        {
-            client_data_list[index]->set_room(room, in_msg["pw"].asString());
-            msg["result"] = 1;
-            msg["msg"] = "Room Create Success";
-        }
-        catch (const DFError &e)
-        {
-            delete_room(room);
-            msg["result"] = -1;
-            msg["msg"] = e.Label;
-        }
+        msg = room_create(index, in_msg);
         break;
     case TcpPacketType::RoomJoin:
+        msg = room_join(index, in_msg);
+    case TcpPacketType::GetRoomList:
+        msg = room_list(index, in_msg);
+        break;
+    }
+    send_packet(client_ssl_list[index], packet["index"].asInt(), TcpPacketType::Answer, msg);
+}
+
+Json::Value Server::duplication_check(int index, Json::Value msg)
+{
+    return mysqlManager->check_duplication(msg["column"].asInt(), msg["check"].asString());
+}
+
+Json::Value Server::sign_up(int index, Json::Value msg)
+{
+    return mysqlManager->signup_user(msg["id"].asString(), msg["pw"].asString(), msg["nick"].asString(), msg["email"].asString());
+}
+
+Json::Value Server::sign_in(int index, Json::Value msg)
+{
+    Json::Value ans = mysqlManager->signin_user(msg["id"].asString(), msg["pw"].asString(), &client_data_list[index]);
+    if (client_data_list[index] != nullptr)
+    {
+        client_data_list[index]->bind_socket(&client_socket_list[index], client_ssl_list[index]);
         try
         {
-            auto name = in_msg["name"].asString();
-            auto hostName = in_msg["host"].asString();
-            auto room = find_if(room_data_list.begin(), room_data_list.end(), [name, hostName](Room r)
-                                { return (r.get_room_info().name == name) && (r.get_room_info().host->get_nickname() == hostName); });
-
-            if (room == room_data_list.end())
-            {
-                msg["result"] = -1;
-                msg["msg"] = "no room";
-            }
-            else
-            {
-                client_data_list[index]->set_room(*room, in_msg["pw"].asString());
-            }
+            client_data_list[index]->set_room(room_data_list[0], "");
         }
         catch (const DFError &e)
         {
-            msg["result"] = -1;
-            msg["msg"] = e.Label;
+            ans["result"] = -1;
+            ans["msg"] = e.Label;
         }
-        break;
-    case TcpPacketType::GetRoomList:
-        msg["result"] = 1;
-        msg["msg"] = "";
+    }
+    return ans;
+}
 
+Json::Value Server::get_user_info(int index, Json::Value msg)
+{
+    return mysqlManager->get_user_info(client_data_list[index]);
+}
+
+Json::Value Server::send_chat(int index, Json::Value msg)
+{
+    Json::StyledWriter writer;
+    Json::Value ans_packet;
+    Json::Value packet_msg;
+
+    packet_msg["sender"] = client_data_list[index]->get_nickname();
+    packet_msg["msg"] = msg["msg"].asString();
+
+    ans_packet = client_data_list[index]->get_room()->send_packet_all(0, TcpPacketType::Chat, packet_msg);
+    return ans_packet;
+}
+
+Json::Value Server::room_create(int index, Json::Value msg)
+{
+    Json::Value ans;
+    RoomInfo info;
+    info.host = client_data_list[index];
+    info.is_private = msg["private"].asBool();
+    info.max_player = msg["max"].asInt();
+    info.name = msg["name"].asString();
+    info.pw = msg["pw"].asString();
+
+    auto room = new_room(info);
+    try
+    {
+        client_data_list[index]->set_room(room, msg["pw"].asString());
+        ans["result"] = 1;
+        ans["msg"] = "Room Create Success";
+    }
+    catch (const DFError &e)
+    {
+        delete_room(room);
+        ans["result"] = -1;
+        ans["msg"] = e.Label;
+    }
+    return ans;
+}
+
+Json::Value Server::room_join(int index, Json::Value msg)
+{
+    Json::Value ans;
+    try
+    {
+        auto name = msg["name"].asString();
+        auto hostName = msg["host"].asString();
+        auto room = find_if(room_data_list.begin(), room_data_list.end(), [name, hostName](Room *r)
+                            { return (r->get_room_info().name == name) && (r->get_room_info().host->get_nickname() == hostName); });
+
+        if (room == room_data_list.end())
+        {
+            ans["result"] = -1;
+            ans["msg"] = "no room";
+        }
+        else
+        {
+            client_data_list[index]->set_room(*room, msg["pw"].asString());
+        }
+    }
+    catch (const DFError &e)
+    {
+        ans["result"] = -1;
+        ans["msg"] = e.Label;
+    }
+    return ans;
+}
+
+Json::Value Server::room_list(int index, Json::Value msg)
+{
+    Json::Value ans;
+    ans["result"] = 1;
+    ans["msg"] = "";
+    {
         for (auto &&room_data : room_data_list)
         {
             auto room_info = room_data->get_room_info();
@@ -341,9 +395,9 @@ void Server::serve_client(Json::Value packet, int index)
                 send_packet(client_ssl_list[index], 0, TcpPacketType::GetRoomList, pack);
             }
         }
-        break;
     }
-    send_packet(client_ssl_list[index], packet["index"].asInt(), TcpPacketType::Answer, msg);
+
+    return ans;
 }
 
 Room *Server::new_room(RoomInfo info)
@@ -425,18 +479,4 @@ Json::Value Server::recv_packet(int index)
     {
         return root;
     }
-}
-
-Json::Value Server::send_chat(Client *client, string msg)
-{
-    Json::StyledWriter writer;
-    Json::Value ans_packet;
-    Json::Value packet_msg;
-
-    packet_msg["sender"] = client->get_nickname();
-    packet_msg["msg"] = msg;
-
-    ans_packet = client->get_room()->send_packet_all(0, TcpPacketType::Chat, packet_msg);
-
-    return ans_packet;
 }

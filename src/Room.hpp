@@ -3,7 +3,9 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <mutex>
 
+#include "./Enums.hpp"
 #include "./Client.hpp"
 #include "./json/json.h"
 
