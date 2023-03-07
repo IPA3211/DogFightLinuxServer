@@ -18,7 +18,6 @@ Room::~Room()
 
 void Room::join_client(Client *client, std::string pw)
 {
-    room_mutex.lock();
     if (info.is_private)
     {
         if (pw != info.pw)
@@ -28,6 +27,7 @@ void Room::join_client(Client *client, std::string pw)
         }
     }
 
+    room_mutex.lock();
     if (member_list.size() >= info.max_player)
     {
         room_mutex.unlock();
@@ -50,7 +50,7 @@ void Room::exit_client(Client *client)
         if (member_list.size() != 0)
         {
             info.host = member_list.front();
-            server->send_packet(info.host->get_ssl(), 0, TcpPacketType::RoomChangeHost, packet);
+            send_packet_all(0, TcpPacketType::RoomChangeHost, packet);
         }
         else
         {
