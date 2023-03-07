@@ -284,13 +284,16 @@ void Server::serve_client(Json::Value packet, int index)
         info.name = in_msg["name"].asString();
         info.pw = in_msg["pw"].asString();
 
-        new_room(info);
+        auto room = new_room(info);
         try
         {
-            client_data_list[index]->set_room(room_data_list[0], in_msg["pw"].asString());
+            client_data_list[index]->set_room(room, in_msg["pw"].asString());
+            msg["result"] = 1;
+            msg["msg"] = "Room Create Success";
         }
         catch (const DFError &e)
         {
+            delete_room(room);
             msg["result"] = -1;
             msg["msg"] = e.Label;
         }
@@ -298,7 +301,20 @@ void Server::serve_client(Json::Value packet, int index)
     case TcpPacketType::RoomJoin:
         try
         {
-            client_data_list[index]->set_room(room_data_list[0], in_msg["pw"].asString());
+            auto name = in_msg["name"].asString();
+            auto hostName = in_msg["host"].asString();
+            auto room = find_if(room_data_list.begin(), room_data_list.end(), [name, hostName](Room r)
+                                { return (r.get_room_info().name == name) && (r.get_room_info().host->get_nickname() == hostName); });
+
+            if (room == room_data_list.end())
+            {
+                msg["result"] = -1;
+                msg["msg"] = "no room";
+            }
+            else
+            {
+                client_data_list[index]->set_room(*room, in_msg["pw"].asString());
+            }
         }
         catch (const DFError &e)
         {
@@ -307,10 +323,9 @@ void Server::serve_client(Json::Value packet, int index)
         }
         break;
     case TcpPacketType::GetRoomList:
-        
         msg["result"] = 1;
         msg["msg"] = "";
-        
+
         for (auto &&room_data : room_data_list)
         {
             auto room_info = room_data->get_room_info();
@@ -331,10 +346,11 @@ void Server::serve_client(Json::Value packet, int index)
     send_packet(client_ssl_list[index], packet["index"].asInt(), TcpPacketType::Answer, msg);
 }
 
-void Server::new_room(RoomInfo info)
+Room *Server::new_room(RoomInfo info)
 {
     Room *room = new Room(info, this);
     room_data_list.push_back(room);
+    return room;
 }
 
 void Server::delete_room(Room *room)

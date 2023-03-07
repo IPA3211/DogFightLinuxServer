@@ -91,7 +91,7 @@ Json::Value Room::send_packet_all(int index, TcpPacketType type, Json::Value msg
             server->send_packet(c->get_ssl(), 0, TcpPacketType::Chat, msg);
         }
         ans_packet["result"] = 1;
-        ans_packet["msg"] = "success";
+        ans_packet["msg"] = "success send to all";
     }
     catch (const std::exception &e)
     {

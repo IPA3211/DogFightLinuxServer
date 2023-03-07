@@ -1,6 +1,7 @@
 #include "./Client.hpp"
 #include "./Room.hpp"
 #include "Client.hpp"
+#include "DFError.hpp"
 
 Client::Client(int id, std::string nickname)
 {
@@ -48,6 +49,11 @@ void Client::set_room(Room *room, std::string pw)
     {
         _room = room;
         _room->join_client(this, pw);
+    }
+    else
+    {
+        _room = nullptr;
+        throw DFError(ERR_ROOM_FULL);
     }
 }
 

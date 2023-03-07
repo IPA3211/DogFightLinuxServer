@@ -83,7 +83,7 @@ public:
     void broadCast_to_all_client(string msg);
     void serve_client(Json::Value packet, int fd);
 
-    void new_room(RoomInfo info);
+    Room *new_room(RoomInfo info);
     void delete_room(Room *room);
     
     void send_packet(SSL *ssl, Json::Value packet);
