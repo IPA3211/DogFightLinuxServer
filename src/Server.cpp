@@ -266,6 +266,7 @@ void Server::serve_client(Json::Value packet, int index)
         break;
     case TcpPacketType::RoomJoin:
         msg = room_join(index, in_msg);
+        break;
     case TcpPacketType::GetRoomList:
         msg = room_list(index, in_msg);
         break;
