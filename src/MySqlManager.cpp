@@ -1,4 +1,6 @@
 #include "./MySqlManager.hpp"
+#include "DFError.hpp"
+#include "MySqlManager.hpp"
 
 MySqlManager::MySqlManager()
 {
@@ -17,6 +19,8 @@ MySqlManager::MySqlManager()
             con->prepareStatement("INSERT INTO dogfight.user(userId, passHash, nickName, email) VALUES(?, ?, ?, ?)");
         statement_sign_in =
             con->prepareStatement("SELECT * FROM dogfight.user WHERE UserId= ? and passHash= ?;");
+        statement_get_user_info =
+            con->prepareStatement("SELECT * FROM dogfight.user WHERE idpk= ?;");
     }
     catch (sql::SQLException &e)
     {
@@ -59,17 +63,17 @@ Json::Value MySqlManager::check_duplication(int column, string check)
         sql::ResultSet *ans;
         switch (column)
         {
-            case UserTableColumn::UserId : 
-                statement_id_duplication->setString(1, check);
-                ans = statement_id_duplication->executeQuery();
+        case UserTableColumn::UserId:
+            statement_id_duplication->setString(1, check);
+            ans = statement_id_duplication->executeQuery();
             break;
-            case UserTableColumn::NickName : 
-                statement_nick_duplication->setString(1, check);
-                ans = statement_id_duplication->executeQuery();
+        case UserTableColumn::NickName:
+            statement_nick_duplication->setString(1, check);
+            ans = statement_id_duplication->executeQuery();
             break;
-            case UserTableColumn::Email : 
-                statement_email_duplication->setString(1, check);
-                ans = statement_id_duplication->executeQuery();
+        case UserTableColumn::Email:
+            statement_email_duplication->setString(1, check);
+            ans = statement_id_duplication->executeQuery();
             break;
         }
 
@@ -139,19 +143,61 @@ Json::Value MySqlManager::signin_user(string id, string pass, Client **client)
         statement_sign_in->setString(2, pass);
         auto ans = statement_sign_in->executeQuery();
 
-        
         if (ans->rowsCount() != 0)
         {
             temp_ans = 1; // true
             ans->next();
             *(client) = new Client(ans->getInt("idpk"), ans->getString("nickname"));
-            
+
             msg = "Sign in success";
         }
         else
         {
             temp_ans = 0; // false
             msg = "Sign in fail";
+        }
+        delete ans;
+    }
+    catch (sql::SQLException &e)
+    {
+        temp_ans = -1; // error
+        msg = e.what();
+    }
+
+    ans_value["result"] = temp_ans;
+    ans_value["msg"] = msg;
+
+    return ans_value;
+}
+Json::Value MySqlManager::get_user_info(Client *client)
+{
+    Json::Value ans_value;
+    int temp_ans = 0;
+    string msg = "";
+
+    if (client == nullptr)
+    {
+        ans_value["result"] = -1;
+        ans_value["msg"] = "login first";
+        return ans_value;
+    }
+
+    try
+    {
+        statement_get_user_info->setInt(1, client->get_client_id());
+        auto ans = statement_sign_in->executeQuery();
+
+        if (ans->rowsCount() != 0)
+        {
+            temp_ans = 1; // true
+            ans->next();
+            ans_value["result"] = 1;
+            ans_value["nick"] = ans->getString("nickname").asStdString();
+        }
+        else
+        {
+            temp_ans = -1; // false
+            msg = "sql error";
         }
         delete ans;
     }

@@ -10,6 +10,8 @@ enum DFErrorType
     ERR_ROOM_PW = 100,
     ERR_ROOM_FULL,
     ERR_ROOM_INFO_FULL,
+
+    ERR_SQL_QUERY = 200,
 };
 
 class DFError
@@ -34,6 +36,9 @@ public:
             break;
         case ERR_ROOM_INFO_FULL:
             Label = (char *)"client amount > room max_clinet to change";
+            break;
+        case ERR_SQL_QUERY :
+            Label = (char *)"Query Error";
             break;
         default:
             Label = (char *)"Generic Error";

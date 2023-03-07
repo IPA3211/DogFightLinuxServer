@@ -37,6 +37,7 @@ private:
     sql::PreparedStatement *statement_email_duplication;
     sql::PreparedStatement *statement_sign_in;
     sql::PreparedStatement *statement_sign_up;
+    sql::PreparedStatement *statement_get_user_info;
 
 public:
     static MySqlManager &instance;
@@ -47,4 +48,5 @@ public:
     Json::Value check_duplication(int column, string check);
     Json::Value signup_user(string id, string pass, string nick, string email);
     Json::Value signin_user(string id, string pass, Client **client);
+    Json::Value get_user_info(Client *client);
 };
