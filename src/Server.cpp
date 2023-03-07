@@ -134,7 +134,13 @@ void Server::AcceptThreadFunc()
 
     client_socket_list[0].fd = socket_fd;
     client_socket_list[0].events = POLLIN;
-    room_data_list.push_back(new Room());
+
+    client_data_list[0] = new Client(0, "Server");
+
+    RoomInfo roominfo;
+    roominfo.host = client_data_list[0];
+    roominfo.max_player = DFLT_NUM_MAX_CLIENT;
+    room_data_list.push_back(new Room(roominfo));
 
     for (i = 1; i < DFLT_NUM_MAX_CLIENT; i++)
     {
@@ -278,6 +284,9 @@ void Server::serve_client(Json::Value packet, int index)
 
     case TcpPacketType::Chat:
         ans_packet["msg"] = writer.write(send_chat(client_data_list[index], in_msg["msg"].asString()));
+        break;
+    case TcpPacketType::CreateRoom:
+
         break;
     }
 
