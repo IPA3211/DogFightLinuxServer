@@ -47,6 +47,11 @@ void Client::set_room(Room *room, std::string pw)
 {
     if (room != nullptr)
     {
+        if (_room != nullptr)
+        {
+            _room->exit_client(this);
+        }
+        
         _room = room;
         _room->join_client(this, pw);
     }
