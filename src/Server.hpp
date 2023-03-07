@@ -18,8 +18,6 @@
 #include "./Client.hpp"
 #include "./Room.hpp"
 
-#define USE_SSL
-
 using namespace std;
 
 enum TcpPacketType{
@@ -58,9 +56,7 @@ class Server
 
 private:
     pollfd client_socket_list[DFLT_NUM_MAX_CLIENT];
-#ifdef USE_SSL
     SSL *client_ssl_list[DFLT_NUM_MAX_CLIENT];
-#endif
     Client *client_data_list[DFLT_NUM_MAX_CLIENT] = {nullptr, };
     std::vector<Room *> room_data_list;
 
@@ -84,13 +80,8 @@ public:
     void broadCast_to_all_client(string msg);
     void serve_client(Json::Value packet, int fd);
     
-#ifdef USE_SSL
     void send_packet(SSL *ssl, Json::Value packet);
     void send_packet(SSL *ssl, int index, TcpPacketType type, Json::Value msg);
-#else
-    void send_packet(pollfd *poll, Json::Value packet);
-    void send_packet(pollfd *poll, int index, TcpPacketType type, Json::Value msg);
-#endif
 
     Json::Value send_chat(Client *client, string msg);
     Json::Value recv_packet(int index);

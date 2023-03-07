@@ -48,9 +48,7 @@ Server::~Server()
 
 void Server::start()
 {
-#ifdef USE_SSL
     init_openssl();
-#endif
     is_accept_looping = true;
     mysqlManager = new MySqlManager();
     accept_thread = new std::thread([this]()
@@ -76,9 +74,7 @@ void Server::stop()
         }
     }
 
-#ifdef USE_SSL
     cleanup_openssl();
-#endif
 }
 
 void Server::broadCast_to_all_client(string msg)
@@ -117,7 +113,6 @@ void Server::AcceptThreadFunc()
         exit(0);
     }
 
-#ifdef USE_SSL
     SSL_CTX *sslContext = SSL_CTX_new(SSLv23_server_method());
     SSL_CTX_set_options(sslContext, SSL_OP_SINGLE_DH_USE);
 
@@ -129,8 +124,6 @@ void Server::AcceptThreadFunc()
     {
         ERR_print_errors_fp(stdout);
     }
-
-#endif
 
     client_socket_list[0].fd = socket_fd;
     client_socket_list[0].events = POLLIN;
@@ -150,9 +143,7 @@ void Server::AcceptThreadFunc()
 
     maxi = 0;
     i = 1;
-#ifdef USE_SSL
     printf("ssl ");
-#endif
     printf("server start!\n");
     while (is_accept_looping)
     {
@@ -168,7 +159,6 @@ void Server::AcceptThreadFunc()
                                        (struct sockaddr *)&clientaddr,
                                        &clilen);
 
-#ifdef USE_SSL
             SSL *ssl = SSL_new(sslContext);
             SSL_set_fd(ssl, client_sockfd);
             int ssl_err = SSL_accept(ssl);
@@ -177,16 +167,13 @@ void Server::AcceptThreadFunc()
                 cout << "ssl_err" << endl;
                 continue;
             }
-#endif
 
             for (i = 1; i < DFLT_NUM_MAX_CLIENT; i++)
             {
                 if (client_socket_list[i].fd < 0)
                 {
                     client_socket_list[i].fd = client_sockfd;
-#ifdef USE_SSL
                     client_ssl_list[i] = ssl;
-#endif
                     printf("%d : accept!\n", i);
                     break;
                 }
@@ -196,10 +183,8 @@ void Server::AcceptThreadFunc()
             {
                 printf("max client!\n");
                 close(client_sockfd);
-#ifdef USE_SSL
                 SSL_free(ssl);
                 ssl = 0;
-#endif
                 continue;
             }
 
@@ -237,9 +222,7 @@ void Server::AcceptThreadFunc()
         }
     }
 
-#ifdef USE_SSL
     SSL_CTX_free(sslContext);
-#endif
 }
 
 void Server::serve_client(Json::Value packet, int index)
@@ -288,14 +271,9 @@ void Server::serve_client(Json::Value packet, int index)
         break;
     }
 
-#ifdef USE_SSL
     send_packet(client_ssl_list[index], packet["index"].asInt(), TcpPacketType::Answer, msg);
-#else
-    send_packet(&client_list[index], ans_packet);
-#endif
 }
 
-#ifdef USE_SSL
 void Server::send_packet(SSL *ssl, Json::Value packet)
 {
     Json::StyledWriter writer;
@@ -314,15 +292,6 @@ void Server::send_packet(SSL *ssl, int index, TcpPacketType type, Json::Value ms
     send_packet(ssl, packet);
 }
 
-#else
-void Server::send_packet(pollfd *poll, Json::Value packet)
-{
-    Json::StyledWriter writer;
-    std::string outputConfig = writer.write(packet);
-    send(poll->fd, outputConfig.c_str(), outputConfig.length() + 1, 0);
-}
-#endif
-
 Json::Value Server::recv_packet(int index)
 {
     string a;
@@ -331,18 +300,13 @@ Json::Value Server::recv_packet(int index)
     while (true)
     {
         memset(buf, 0x00, sizeof(buf));
-#ifdef USE_SSL
         int recv_amt = SSL_read(client_ssl_list[index], (char *)buf, sizeof(buf));
-#else
-        int recv_amt = recv(client_list[index].fd, buf, sizeof(buf), 0);
-#endif
+
         if (recv_amt <= 0)
         {
             close(client_socket_list[index].fd);
-#ifdef USE_SSL
             SSL_free(client_ssl_list[index]);
             client_ssl_list[index] = nullptr;
-#endif
             client_socket_list[index].fd = -1;
 
             if (client_data_list[index] != nullptr)
@@ -393,11 +357,7 @@ Json::Value Server::send_chat(Client *client, string msg)
     {
         for (auto &&c : client_list_temp)
         {
-#ifdef USE_SSL
             send_packet(c->get_ssl(), 0, TcpPacketType::Chat, writer.write(packet_msg));
-#else
-            send_packet(c->get_socket(), packet);
-#endif
         }
         ans_packet["result"] = 1;
         ans_packet["msg"] = "success";
