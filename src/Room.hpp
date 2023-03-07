@@ -23,6 +23,8 @@ class Room
 private:
     Server *server;
     RoomInfo info;
+    
+    std::mutex room_mutex;
     std::vector<Client *> member_list;
 
 public:
@@ -37,5 +39,7 @@ public:
     RoomInfo get_room_info();
     int get_member_count();
     std::vector<Client *> get_client_list();
+
+    void send_packet_all(int index, TcpPacketType type, Json::Value msg);
 };
 

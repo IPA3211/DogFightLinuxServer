@@ -239,7 +239,7 @@ void Server::serve_client(Json::Value packet, int index)
 
     if (!read)
     {
-        throw(DFError((char *)"json parse error"));
+        throw(DFError(ERR_JSON_PARSE));
     }
 
     Json::Value msg;
@@ -340,7 +340,7 @@ Json::Value Server::recv_packet(int index)
 
     if (parsingRet == false)
     {
-        throw DFError((char *)"Failed to parse Json");
+        throw DFError(ERR_JSON_PARSE);
     }
     else
     {
