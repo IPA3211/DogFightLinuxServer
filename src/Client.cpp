@@ -42,12 +42,12 @@ void Client::bind_socket(pollfd *poll, SSL *ssl_sock)
     _ssl = ssl_sock;
 }
 
-void Client::set_room(Room *room)
+void Client::set_room(Room *room, std::string pw)
 {
     if (room != nullptr)
     {
         _room = room;
-        _room->join_client(this);
+        _room->join_client(this, pw);
     }
 }
 

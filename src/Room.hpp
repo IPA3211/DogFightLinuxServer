@@ -5,8 +5,9 @@
 #include <algorithm>
 
 #include "./Client.hpp"
-#include "./Server.hpp"
 #include "./json/json.h"
+
+class Server;
 
 struct RoomInfo
 {
@@ -17,18 +18,18 @@ struct RoomInfo
     int max_player;
 };
 
-
 class Room
 {
 private:
+    Server *server;
     RoomInfo info;
     std::vector<Client *> member_list;
 
 public:
-    Room(RoomInfo roominfo);
+    Room(RoomInfo roominfo, Server *server);
     ~Room();
 
-    void join_client(Client *client);
+    void join_client(Client *client, std::string pw);
     void exit_client(Client *client);
 
     void set_room_info(RoomInfo roominfo);

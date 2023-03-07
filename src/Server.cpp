@@ -140,7 +140,7 @@ void Server::AcceptThreadFunc()
     RoomInfo roominfo;
     roominfo.host = client_data_list[0];
     roominfo.max_player = DFLT_NUM_MAX_CLIENT;
-    room_data_list.push_back(new Room(roominfo));
+    room_data_list.push_back(new Room(roominfo, this));
 
     for (i = 1; i < DFLT_NUM_MAX_CLIENT; i++)
     {
@@ -259,39 +259,37 @@ void Server::serve_client(Json::Value packet, int index)
         throw(DFError((char *)"json parse error"));
     }
 
-    Json::StyledWriter writer;
-    ans_packet["index"] = packet["index"].asInt();
-    ans_packet["order"] = TcpPacketType::Answer;
+    Json::Value msg;
 
     switch (packet["order"].asInt())
     {
     case TcpPacketType::DuplicationCheck:
-        ans_packet["msg"] = writer.write(mysqlManager->check_duplication(in_msg["column"].asInt(), in_msg["check"].asString()));
+        msg = mysqlManager->check_duplication(in_msg["column"].asInt(), in_msg["check"].asString());
         break;
 
     case TcpPacketType::SignUp:
-        ans_packet["msg"] = writer.write(mysqlManager->signup_user(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString()));
+        msg = mysqlManager->signup_user(in_msg["id"].asString(), in_msg["pw"].asString(), in_msg["nick"].asString(), in_msg["email"].asString());
         break;
 
     case TcpPacketType::SignIn:
-        ans_packet["msg"] = writer.write(mysqlManager->signin_user(in_msg["id"].asString(), in_msg["pw"].asString(), &client_data_list[index]));
+        msg = mysqlManager->signin_user(in_msg["id"].asString(), in_msg["pw"].asString(), &client_data_list[index]);
         if (client_data_list[index] != nullptr)
         {
             client_data_list[index]->bind_socket(&client_socket_list[index], client_ssl_list[index]);
-            client_data_list[index]->set_room(room_data_list[0]);
+            client_data_list[index]->set_room(room_data_list[0], "");
         }
         break;
 
     case TcpPacketType::Chat:
-        ans_packet["msg"] = writer.write(send_chat(client_data_list[index], in_msg["msg"].asString()));
+        msg = send_chat(client_data_list[index], in_msg["msg"].asString());
         break;
-    case TcpPacketType::CreateRoom:
+    case TcpPacketType::RoomCreate:
 
         break;
     }
 
 #ifdef USE_SSL
-    send_packet(client_ssl_list[index], ans_packet);
+    send_packet(client_ssl_list[index], packet["index"].asInt(), TcpPacketType::Answer, msg);
 #else
     send_packet(&client_list[index], ans_packet);
 #endif
@@ -303,6 +301,17 @@ void Server::send_packet(SSL *ssl, Json::Value packet)
     Json::StyledWriter writer;
     std::string outputConfig = writer.write(packet);
     SSL_write(ssl, outputConfig.c_str(), outputConfig.length() + 1);
+}
+
+void Server::send_packet(SSL *ssl, int index, TcpPacketType type, Json::Value msg)
+{
+    Json::Value packet;
+    Json::StyledWriter writer;
+    packet["index"] = index;
+    packet["order"] = type;
+    packet["msg"] = writer.write(msg);
+
+    send_packet(ssl, packet);
 }
 
 #else
@@ -371,34 +380,27 @@ Json::Value Server::recv_packet(int index)
 
 Json::Value Server::send_chat(Client *client, string msg)
 {
-    Json::Value packet;
+    Json::StyledWriter writer;
+    Json::Value ans_packet;
     Json::Value packet_msg;
 
     packet_msg["sender"] = client->get_nickname();
     packet_msg["msg"] = msg;
 
-    Json::StyledWriter writer;
-
-    packet["index"] = 0;
-    packet["order"] = TcpPacketType::Chat;
-    packet["msg"] = writer.write(packet_msg);
-
     auto client_list_temp = client->get_room()->get_client_list();
-
-    Json::Value ans_packet;
-    ans_packet["result"] = 1;
-    ans_packet["msg"] = "success";
 
     try
     {
         for (auto &&c : client_list_temp)
         {
 #ifdef USE_SSL
-            send_packet(c->get_ssl(), packet);
+            send_packet(c->get_ssl(), 0, TcpPacketType::Chat, writer.write(packet_msg));
 #else
             send_packet(c->get_socket(), packet);
 #endif
         }
+        ans_packet["result"] = 1;
+        ans_packet["msg"] = "success";
     }
     catch (const std::exception &e)
     {

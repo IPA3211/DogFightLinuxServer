@@ -28,6 +28,6 @@ public:
     SSL *get_ssl();
     pollfd *get_socket();
     void bind_socket(pollfd *poll, SSL *ssl_sock);
-    void set_room(Room *room);
+    void set_room(Room *room, std::string pw);
     Room *get_room();
 };

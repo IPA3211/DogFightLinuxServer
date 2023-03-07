@@ -33,7 +33,12 @@ enum TcpPacketType{
     SignUp = 200,
     SignIn,
 
-    CreateRoom = 300,
+    RoomCreate = 300,
+    RoomChangeHost,
+    RoomChangeInfo,
+    RoomJoin,
+    RoomExit,
+
     Quit = 999
 };
 
@@ -81,8 +86,10 @@ public:
     
 #ifdef USE_SSL
     void send_packet(SSL *ssl, Json::Value packet);
+    void send_packet(SSL *ssl, int index, TcpPacketType type, Json::Value msg);
 #else
     void send_packet(pollfd *poll, Json::Value packet);
+    void send_packet(pollfd *poll, int index, TcpPacketType type, Json::Value msg);
 #endif
 
     Json::Value send_chat(Client *client, string msg);
